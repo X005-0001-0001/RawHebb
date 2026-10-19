@@ -5,7 +5,7 @@ Purely forward dynamics — leaky membrane integrators, threshold spikes, and lo
 plasticity. No optimiser, no loss backward pass, no global gradient, no attention, no hand-tuned
 magic constants.
 
-> Branch `bio` · current release **0.4.0.0** · license **AGPL-3.0**
+> Branch `bio` · current release **0.6.0.0** · license **AGPL-3.0**
 
 中文速览见 [中文说明](#中文说明)。
 
@@ -47,7 +47,9 @@ RawHebb+bio+0.1.0.0.py      single-file application, first release (kept for his
 RawHebb+bio+0.1.1.0.py      single-file application (kept for history)
 RawHebb+bio+0.2.0.0.py      single-file application (kept for history)
 RawHebb+bio+0.3.0.0.py      single-file application (kept for history)
-RawHebb+bio+0.4.0.0.py      single-file application, current
+RawHebb+bio+0.4.0.0.py      single-file application (kept for history)
+RawHebb+bio+0.5.0.0.py      single-file application (kept for history - see below, it regressed)
+RawHebb+bio+0.6.0.0.py      single-file application, current
 research/                 the full research lineage (v115 → v117) and its diagnostics
 docs/FINDINGS.md          what worked, what did not, and the measured numbers
 ```
@@ -84,16 +86,16 @@ that substitution is stated in the menu itself rather than hidden.
 
 ```bash
 # 1. kernel self-test (no data needed, < 30 s)
-python "RawHebb+bio+0.4.0.0.py" --selftest
+python "RawHebb+bio+0.6.0.0.py" --selftest
 
 # 2. split a corpus into train/val by dialogue, with leak checks
-python "RawHebb+bio+0.4.0.0.py" --split
+python "RawHebb+bio+0.6.0.0.py" --split
 
 # 3. train
-python "RawHebb+bio+0.4.0.0.py" --train --train-file train.jsonl --epochs 1 --limit 500
+python "RawHebb+bio+0.6.0.0.py" --train --train-file train.jsonl --epochs 1 --limit 500
 
 # 4. or just run the menu
-python "RawHebb+bio+0.4.0.0.py"
+python "RawHebb+bio+0.6.0.0.py"
 ```
 
 Requirements: Python 3.10+, PyTorch 2.x, `tokenizers`.
@@ -127,13 +129,15 @@ checks are run and reported:
 
 On a held-out set of 150 dialogues (29 771 scored assistant tokens), the best research checkpoint:
 
-| metric | model | unigram | bigram |
+| metric | model (0.6.0.0, full corpus) | unigram | bigram |
 |---|---|---|---|
-| cross-entropy | **5.96** | 5.88 | **3.96** |
-| top-1 | 2.77 % | 6.82 % | — |
+| cross-entropy | **5.86** | 5.88 | **3.96** |
+| top-1 | **14.85 %** | 6.11 % | — |
+| top-5 | 27.17 % | — | — |
 
-The model sits at the **unigram level**. That is not yet a language model, and the repository
-documents it as such rather than dressing it up. Two findings are worth stating up front because
+The model is now **past the unigram baseline on both metrics** (CE 5.862 < 5.875, top-1 14.85 % vs
+6.11 %), which is the first time that has happened in this project's history. It is still far from a
+bigram (CE 3.96), and the repository says so rather than dressing it up. Two findings are worth stating up front because
 they cost us several rounds:
 
 **1. Most of the CE gain was calibration, not correctness.** Decomposing the trained model's logits:

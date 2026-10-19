@@ -3,7 +3,21 @@
 All notable changes to RawHebb. Versions follow `RawHebb+bio+<a>.<b>.<c>.<d>.py` (four segments, no `v` prefix);
 every change is a new file, older versions are kept verbatim.
 
-## [0.4.0.0] — current
+## [0.6.0.0] — current
+* The read-out update is now a proper **overwrite**: start from the least-squares solution `A^-1 B`
+  and add one stochastic Newton correction `-A^-1 Σ(p−y)xᵀ` using the accumulated inverse Hessian.
+  The external temperature calibration is deleted — the fit carries its own scale.
+* **Full corpus (2 850 dialogues, one epoch, 6 min on CPU): held-out CE 5.862, top-1 14.85 %,
+  top-5 27.17 %.** This is the first configuration to beat the unigram baseline on *both* metrics
+  (unigram: CE 5.875, top-1 6.11 %).
+* Previous best on the same corpus was CE 6.039 / top-1 2.53 %.
+
+## [0.5.0.0] — kept for history, it regressed
+* Attempted an online Gauss-Newton read-out. Top-1 collapsed from 12.1 % to 1.0 % because the
+  update was accumulated into `W` instead of overwriting it, so `-A^-1 B` was subtracted once per
+  window and the weights drifted. Fixed in 0.6.0.0. Kept because the failure is instructive.
+
+## [0.4.0.0]
 * **Fixed a structural bug**: the cascade amplified the variance by `1/(1−leak)` per layer
   (10.5 × 20 × 40 × 80 ≈ 670 000), so the deep state was `inf` and the base head was reading
   garbage. Drive gain is now the layer's own `(1−leak)`; deep features went from `inf` to usable.

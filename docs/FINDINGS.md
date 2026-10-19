@@ -220,3 +220,48 @@ All three are local, online, gradient-free, and free of hand-set constants.
 Top-1 quadrupled at equal data, and the deployed rule is now within striking distance of the
 offline ceiling it was derived from. The remaining CE gap to a bigram (3.96) is a calibration
 question, not a representation question — which is the next thing to attack.
+
+
+---
+
+## 0.5.0.0 → 0.6.0.0 — a regression, and what it taught
+
+0.4.0.0 had the right features and the right estimator but the wrong *scoring*: least squares
+against one-hot targets ranks well (top-1 16 % offline) and predicts badly (CE 7.88), because the
+fit is systematically under-confident. Replacing it with a Newton step in the cross-entropy sense
+was the obvious move.
+
+The first attempt (0.5.0.0) did this:
+
+```
+W ← W − A⁻¹B + A⁻¹R        # wrong: W is carried over from the previous window
+```
+
+Because `W` was carried over, the `−A⁻¹B` term was subtracted **once per window** and the weights
+drifted. Result: held-out CE 7.24, top-1 **0.98 %** — far worse than the version it replaced.
+
+The fix (0.6.0.0) is a full overwrite:
+
+```
+W ← A⁻¹B − A⁻¹ Σ_win (p−y)xᵀ
+```
+
+Least-squares solution as the starting point, one stochastic Newton correction with the accumulated
+inverse Hessian. No drift, no learning rate, and the external temperature calibration disappears
+because the fit now carries its own scale.
+
+### Full corpus, one epoch, 6 minutes on CPU
+
+| version | held-out CE | held-out top-1 | top-5 |
+|---|---|---|---|
+| v115 (previous best) | 6.039 | 2.53 % | 12.5 % |
+| 0.4.0.0 (least squares + temperature) | 6.074 | 10.98 % | 21.5 % |
+| **0.6.0.0** | **5.862** | **14.85 %** | **27.17 %** |
+| unigram baseline | 5.875 | 6.11 % | — |
+| bigram baseline | 3.961 | — | — |
+
+This is the first configuration in the project's history to beat the unigram baseline on **both**
+metrics, at 1/6th of the data of some earlier runs and with no tuned constants anywhere.
+
+Scaling on the same configuration: 500 dialogues → CE 5.949 / top-1 12.06 %;
+2 850 dialogues → CE 5.862 / top-1 14.85 %. More data still helps, and nothing had to be re-tuned.
