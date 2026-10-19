@@ -5,7 +5,7 @@ Purely forward dynamics — leaky membrane integrators, threshold spikes, and lo
 plasticity. No optimiser, no loss backward pass, no global gradient, no attention, no hand-tuned
 magic constants.
 
-> Branch `bio` · current release **0.2.0.0** · license **AGPL-3.0**
+> Branch `bio` · current release **0.4.0.0** · license **AGPL-3.0**
 
 中文速览见 [中文说明](#中文说明)。
 
@@ -45,7 +45,9 @@ The design constraints are physical, not algorithmic:
 ```
 RawHebb+bio+0.1.0.0.py      single-file application, first release (kept for history)
 RawHebb+bio+0.1.1.0.py      single-file application (kept for history)
-RawHebb+bio+0.2.0.0.py      single-file application, current
+RawHebb+bio+0.2.0.0.py      single-file application (kept for history)
+RawHebb+bio+0.3.0.0.py      single-file application (kept for history)
+RawHebb+bio+0.4.0.0.py      single-file application, current
 research/                 the full research lineage (v115 → v117) and its diagnostics
 docs/FINDINGS.md          what worked, what did not, and the measured numbers
 ```
@@ -82,16 +84,16 @@ that substitution is stated in the menu itself rather than hidden.
 
 ```bash
 # 1. kernel self-test (no data needed, < 30 s)
-python "RawHebb+bio+0.2.0.0.py" --selftest
+python "RawHebb+bio+0.4.0.0.py" --selftest
 
 # 2. split a corpus into train/val by dialogue, with leak checks
-python "RawHebb+bio+0.2.0.0.py" --split
+python "RawHebb+bio+0.4.0.0.py" --split
 
 # 3. train
-python "RawHebb+bio+0.2.0.0.py" --train --train-file train.jsonl --epochs 1 --limit 500
+python "RawHebb+bio+0.4.0.0.py" --train --train-file train.jsonl --epochs 1 --limit 500
 
 # 4. or just run the menu
-python "RawHebb+bio+0.2.0.0.py"
+python "RawHebb+bio+0.4.0.0.py"
 ```
 
 Requirements: Python 3.10+, PyTorch 2.x, `tokenizers`.

@@ -172,3 +172,51 @@ reward switched to the discrete correctness signal, top-1 nearly doubled **witho
 constant** — and nothing needs re-tuning when the corpus or the model size changes. The remaining
 free parameters are architecture and physics (layers, width, window, τ), which is where they should
 be.
+
+
+---
+
+## v120 / 0.4.0.0 — the readout was the bottleneck, and the state was overflowing
+
+Two measurements settled it.
+
+**1. The closed-form probe (offline, diagnostic only).** Extract the features once, then solve
+ridge regression in closed form:
+
+| features | dim | held-out CE | held-out top-1 |
+|---|---|---|---|
+| embedding only | 128 | 7.887 | 13.47 % |
+| L0 state only (τ=10) | 128 | 7.900 | 11.45 % |
+| L3 state only (τ=80) | 128 | 7.917 | 5.82 % |
+| four timescales concatenated | 512 | 7.891 | 13.11 % |
+| **embedding ⊕ four timescales** | 640 | **7.876** | **16.39 %** |
+
+The trained model was at **5 %**. The information was in the features all along; the online rule was
+simply not converging.
+
+**2. The cascade was overflowing.** Norms per layer: embedding 1.0 → L0 2.5 → L1 37 → L2 1104 →
+L3 **inf**. Steady-state gain is `1/(1−leak)`, so the four layers multiply to ≈ 670 000. The base
+head reads the last layer — i.e. it was reading `inf`. Fix: drive gain = the layer's own `(1−leak)`,
+so every layer's steady-state variance equals its input's variance. After the fix, L3's probe top-1
+went from `nan` (0 %) to 5.82 %.
+
+### What 0.4.0.0 does
+1. features = embedding ⊕ all four timescales (each RMS-normalised, so the solver decides the mix);
+2. `W = A⁻¹B` from running sufficient statistics, re-solved when the accumulated evidence doubles
+   (doubling schedule ⇒ no parameter, O(log n) solves);
+3. one global temperature calibrated by finite-difference Newton against the likelihood.
+
+All three are local, online, gradient-free, and free of hand-set constants.
+
+### Result (500 dialogues, CPU)
+
+| version | held-out CE | held-out top-1 |
+|---|---|---|
+| 0.2.0.0 (zero magic numbers) | 6.60 | 2.85 % |
+| 0.3.0.0 (gain fix only, last-layer readout) | 6.50 | 3.23 % |
+| **0.4.0.0 (multi-timescale closed-form)** | **6.07** | **11.72 %** |
+| *closed-form probe ceiling* | *7.88* | *16.39 %* |
+
+Top-1 quadrupled at equal data, and the deployed rule is now within striking distance of the
+offline ceiling it was derived from. The remaining CE gap to a bigram (3.96) is a calibration
+question, not a representation question — which is the next thing to attack.
