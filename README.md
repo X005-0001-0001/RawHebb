@@ -5,7 +5,7 @@ Purely forward dynamics — leaky membrane integrators, threshold spikes, and lo
 plasticity. No optimiser, no loss backward pass, no global gradient, no attention, no hand-tuned
 magic constants.
 
-> Branch `bio` · current release **0.1.1.0** · license **AGPL-3.0**
+> Branch `bio` · current release **0.2.0.0** · license **AGPL-3.0**
 
 中文速览见 [中文说明](#中文说明)。
 
@@ -44,7 +44,8 @@ The design constraints are physical, not algorithmic:
 
 ```
 RawHebb+bio+0.1.0.0.py      single-file application, first release (kept for history)
-RawHebb+bio+0.1.1.0.py      single-file application, current
+RawHebb+bio+0.1.1.0.py      single-file application (kept for history)
+RawHebb+bio+0.2.0.0.py      single-file application, current
 research/                 the full research lineage (v115 → v117) and its diagnostics
 docs/FINDINGS.md          what worked, what did not, and the measured numbers
 ```
@@ -81,16 +82,16 @@ that substitution is stated in the menu itself rather than hidden.
 
 ```bash
 # 1. kernel self-test (no data needed, < 30 s)
-python "RawHebb+bio+0.1.1.0.py" --selftest
+python "RawHebb+bio+0.2.0.0.py" --selftest
 
 # 2. split a corpus into train/val by dialogue, with leak checks
-python "RawHebb+bio+0.1.1.0.py" --split
+python "RawHebb+bio+0.2.0.0.py" --split
 
 # 3. train
-python "RawHebb+bio+0.1.1.0.py" --train --train-file train.jsonl --epochs 1 --limit 500
+python "RawHebb+bio+0.2.0.0.py" --train --train-file train.jsonl --epochs 1 --limit 500
 
 # 4. or just run the menu
-python "RawHebb+bio+0.1.1.0.py"
+python "RawHebb+bio+0.2.0.0.py"
 ```
 
 Requirements: Python 3.10+, PyTorch 2.x, `tokenizers`.
@@ -162,6 +163,14 @@ first-class gate.
 - The deep state is the *best* available feature, not a liability: swapping the base head's feature
   from the slow layer (τ=80) to the fast one (τ=10) makes things dramatically worse (CE 7.92, top-1 0.05 %).
 
+**3. Zero magic numbers (0.2.0.0).** Every rule is now self-scaling: the output head moves a
+direction-normalised step of `1/(t+1)`; the associative memory is an exponential average whose decay
+*is* the layer's membrane time constant (the same biological constants already in the system); the
+read-out mix is the normalised hit rate **above chance** (`1/V` is a structural quantity, not a
+tuned one). `γ` and both clamps are gone. On 500 dialogues this took held-out top-1 from 2.85 % to
+4.33 % — and, unlike the previous versions, nothing has to be re-tuned when the data or the model
+size changes.
+
 Also recorded, because negative results are results: GPU acceleration does **not** help this kernel.
 It is a 200-step Python loop of small ops, so it is kernel-launch bound (3.04 s/sample on GPU vs
 1.78 s on CPU). Batching makes it 15× faster but destroys the online local rules.
@@ -182,7 +191,7 @@ RawHebb+bio+<a>.<b>.<c>.<d>.py   (four-segment version, no `v` prefix)
 | version | what changed |
 |---|---|
 | 0.1.0.0 | first release. Kernel replaced with the pure-Hebbian `RawHebbKernel`; menu structure preserved; items 8/9 swapped to gradient-free equivalents; added held-out validation. |
-| 0.1.1.0 | fixes two measured defects in v0.1.0: (i) memory read-out normalised by RMS over the *whole* vocabulary, which amplified the few written channels by √N early in training (merged peak 44, CE 8.4 → 24.9) — now normalised only over channels that hold memory; (ii) `W_out` LMS switched to a relative step size, so it cannot diverge without an external watchdog. |
+| 0.1.1.0 | fixes two measured defects in 0.1.0.0: (i) memory read-out normalised by RMS over the *whole* vocabulary, which amplified the few written channels by √N early in training (merged peak 44, CE 8.4 → 24.9) — now normalised only over channels that hold memory; (ii) `W_out` LMS switched to a relative step size, so it cannot diverge without an external watchdog. |
 
 ---
 

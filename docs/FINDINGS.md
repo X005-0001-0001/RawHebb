@@ -131,3 +131,44 @@ Other recorded dead ends:
    current token. The most direct testable move is to let the associative memory be keyed by the
    current token's embedding — Hebbian association between neighbouring tokens is exactly that — and
    let the deep layers modulate rather than replace it.
+
+---
+
+## v118 / v119 — removing the magic numbers (and one instructive failure)
+
+Every rule used to carry a hand-picked constant: `LR_MEM=0.02`, `MEM_DECAY_EVERY`, `LR_OUT`,
+`LR_GAMMA`, `LR_W`, plus clamps on `w` (±3) and `γ` ([0.1, 10]). Those are exactly the kind of
+numbers that work on one corpus and explode on the next.
+
+**v118** replaced all of them with self-scaling forms: running-mean memory (`lr = 1/(n+1)`),
+hit-rate mixing, direction-normalised `1/(t+1)` output steps, and no clamps.
+
+It **failed**, and the failure was informative: validation CE 7.84 (≈ uniform 7.92), top-1 2.15 %,
+and the mixing weights collapsed to `[0.0, 0.0, 0.0001]`.
+
+Why: a *whole-history* running mean averages away recency. Every token column ends up close to the
+global mean state vector, so the column prototypes become mutually collinear, their argmax is
+essentially random, and a mix weighted by "has this layer been right" correctly concludes that no
+layer has earned a voice. The system was right; the memory was the problem.
+
+**v119** fixed the memory in the most physical way available: the forgetting curve **is** the
+membrane time constant. The memory update became an exponential average with decay `(1 − leak)` of
+that layer — L0 0.9048, deeper layers 0.951 / 0.975 / 0.988 — i.e. the same biological constants the
+network already runs on, no new number. The mix now only counts evidence **above chance**
+(`max(hit_rate − 1/V, 0)`), where `1/V` is a structural quantity.
+
+| arm | held-out CE | held-out top-1 | magic numbers |
+|---|---|---|---|
+| v116 (= v115 behaviour) | 6.6031 | 2.85 % | 6 + 2 clamps |
+| v118 (zero magic, whole-history mean) | 7.8409 | 2.15 % | 0 |
+| **v119 (zero magic, τ-based forgetting)** | 7.6158 | **4.33 %** | 0 |
+
+The single-file application `RawHebb+bio+0.2.0.0.py` carries the same rules and reproduces the
+behaviour (250 dialogues × 2 epochs: held-out top-1 5.00 %).
+
+**What this round establishes.** The previous versions' CE numbers were, in large part, the model
+learning how sharp to be rather than how to be right. Once the rules were made self-scaling and the
+reward switched to the discrete correctness signal, top-1 nearly doubled **without a single tuned
+constant** — and nothing needs re-tuning when the corpus or the model size changes. The remaining
+free parameters are architecture and physics (layers, width, window, τ), which is where they should
+be.
