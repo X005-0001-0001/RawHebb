@@ -5,7 +5,7 @@ Purely forward dynamics — leaky membrane integrators, threshold spikes, and lo
 plasticity. No optimiser, no loss backward pass, no global gradient, no attention, no hand-tuned
 magic constants.
 
-> Branch `bio` · current release **0.6.0.0** · license **AGPL-3.0**
+> Branch `bio` · current release **0.10.0.0** · license **AGPL-3.0**
 
 中文速览见 [中文说明](#中文说明)。
 
@@ -18,13 +18,16 @@ optimiser entirely. The only things that ever change are:
 
 | What | Rule | Signal it sees |
 |---|---|---|
-| Output head `W_out` | LMS on the **probability** error `e_t = onehot(y_t) − softmax(logits_t)` | its own readout |
-| Associative memory `W_m[layer]` | Hebbian pull toward the **column prototype** of the next token | its own layer state |
-| Readout gain `γ` | local correlation `err · readout` | its own readout |
-| Layer weights `w` | local correlation `err · layer_readout` | that layer's readout |
+| Output head `W_out` | Running Gram `A=Σxxᵀ`, `B=Σxy` + one stochastic Newton step | its own probability error |
+| State memory `W_m[layer]` | Hebbian pull toward the **column prototype** of the next token | its own layer state |
+| Token-pair memory `C[x,y]` | Pure Hebbian count `C[x,y] += 1`; read `p(y|x)=(C+λ·p_uni)/(row+λ)` | the input stream |
+| Context memory `T[key,y]` | Same count rule on a hashed prefix of the last 2 tokens | the input stream |
+| Expert weights | Likelihood coordinate descent on the probability simplex | its own held-out-free likelihood |
+| Layer weights `w` | Normalised hit rate above chance `1/V` | that layer's argmax |
 
 Nothing is back-propagated into hidden weights. Hidden `W` is frozen by design, so the network is a
-strictly feed-forward dynamical system whose learning is *local synaptic plasticity*.
+strictly feed-forward dynamical system whose learning is *local synaptic plasticity*. The pair/context
+tables are associative memories (outer-product Hebbian counts), not gradients.
 
 The design constraints are physical, not algorithmic:
 
@@ -49,9 +52,12 @@ RawHebb+bio+0.2.0.0.py      single-file application (kept for history)
 RawHebb+bio+0.3.0.0.py      single-file application (kept for history)
 RawHebb+bio+0.4.0.0.py      single-file application (kept for history)
 RawHebb+bio+0.5.0.0.py      single-file application (kept for history - see below, it regressed)
-RawHebb+bio+0.6.0.0.py      single-file application, current
-research/                 the full research lineage (v115 → v117) and its diagnostics
-docs/FINDINGS.md          what worked, what did not, and the measured numbers
+RawHebb+bio+0.6.0.0.py      single-file application (kept for history)
+RawHebb+bio+0.10.0.0.py     single-file application, current
+RawHebb+seq128tri+0.9.33.0.py  the exact v121 experimental branch that became 0.10.0.0
+RawHebb+lab+0.9.0.0.py      v121 experiment bench (all switches)
+research/                   research lineage, v121 diagnostics and branch generators
+docs/FINDINGS.md            what worked, what did not, and the measured numbers
 ```
 
 Each version is a **complete single file**: menu, kernel, data layer, training, evaluation and
@@ -86,16 +92,16 @@ that substitution is stated in the menu itself rather than hidden.
 
 ```bash
 # 1. kernel self-test (no data needed, < 30 s)
-python "RawHebb+bio+0.6.0.0.py" --selftest
+python "RawHebb+bio+0.10.0.0.py" --selftest
 
 # 2. split a corpus into train/val by dialogue, with leak checks
-python "RawHebb+bio+0.6.0.0.py" --split
+python "RawHebb+bio+0.10.0.0.py" --split
 
-# 3. train
-python "RawHebb+bio+0.6.0.0.py" --train --train-file train.jsonl --epochs 1 --limit 500
+# 3. train (add --fresh to skip the warm start from brain.pt)
+python "RawHebb+bio+0.10.0.0.py" --train --train-file train.jsonl --epochs 1 --fresh
 
 # 4. or just run the menu
-python "RawHebb+bio+0.6.0.0.py"
+python "RawHebb+bio+0.10.0.0.py"
 ```
 
 Requirements: Python 3.10+, PyTorch 2.x, `tokenizers`.
@@ -127,59 +133,43 @@ checks are run and reported:
 
 ## Measured state of the model (read this before judging it)
 
-On a held-out set of 150 dialogues (29 771 scored assistant tokens), the best research checkpoint:
+Full corpus (2 850 dialogues, one epoch, CPU), held-out 150 dialogues (29 657 scored assistant tokens):
 
-| metric | model (0.6.0.0, full corpus) | unigram | bigram |
-|---|---|---|---|
-| cross-entropy | **5.86** | 5.88 | **3.96** |
-| top-1 | **14.85 %** | 6.11 % | — |
-| top-5 | 27.17 % | — | — |
+| metric | **0.10.0.0** | bigram (add-1, same mask) | unigram (add-1) | old 0.6.0.0 |
+|---|---|---|---|---|
+| cross-entropy | **3.269** | 3.864 | 5.778 | 5.862 |
+| top-1 | **38.62 %** | 27.82 % | 5.67 % | 14.85 % |
+| top-5 | **62.99 %** | 55.24 % | 16.86 % | 27.17 % |
 
-The model is now **past the unigram baseline on both metrics** (CE 5.862 < 5.875, top-1 14.85 % vs
-6.11 %), which is the first time that has happened in this project's history. It is still far from a
-bigram (CE 3.96), and the repository says so rather than dressing it up. Two findings are worth stating up front because
-they cost us several rounds:
+The model is now **better than a bigram on both CE and top-1**, with no back-propagation anywhere.
 
-**1. Most of the CE gain was calibration, not correctness.** Decomposing the trained model's logits:
+**The decisive finding of this release: a target-shift bug that had been present since 0.1.0.0.**
+`chat_to_ids` already returns `labels[t] = token t+1` (the standard next-token target), but the
+training/evaluation code paired `logits[t]` with `labels[t+1]`, i.e. it was solving a **two-step-ahead**
+task. Scoring the same 0.6.0.0 checkpoint under three alignments makes it unambiguous:
 
-| branch | CE | top-1 |
+| alignment | CE | top-1 |
 |---|---|---|
-| full | 6.04 | 2.61 % |
-| base head only | 7.76 | **5.63 %** |
-| memory branch only | 6.09 | 1.96 % |
+| old `logits[t]` vs `labels[t+1]` | 5.87 | 12.58 % |
+| standard `logits[t]` vs `labels[t]` | 6.52 | 2.68 % |
 
-The base head *ranks* better than the whole model. Sweeping the memory gain `γ` without retraining:
+After the fix (`RawHebb+align+0.8.0.0.py`), the same 500-dialogue subset jumped from
+CE 5.87 / top-1 12.6 % to **5.10 / 23.7 %**. Every number before 0.10.0.0 is therefore on a different
+task and must not be compared directly.
 
-| γ | 0 | 0.1 | 0.3 | 1.0 | 1.434 (learned) |
-|---|---|---|---|---|---|
-| CE | 7.76 | 7.50 | 7.04 | 6.12 | **6.04** |
-| top-1 | 5.63 % | **6.34 %** | 5.14 % | 2.93 % | 2.61 % |
+**Three local memories, all Hebbian.** The recurrent state memory is kept; on top of it are an exact
+token-pair count table (V×V, `C[x,y] += 1`) and a hashed 2-token-prefix count table. The three
+experts (neural base / pair / prefix) are mixed on the probability simplex by coordinate descent on
+the likelihood; there is no learning rate and no hand-set mixture weight. The prior strength is one
+pseudo-observation; the hash width is an architecture quantity.
 
-The local rule pushes `γ` to the CE optimum, which is the top-1 worst point. **CE and top-1 are
-zero-sum here.** Every earlier version was judged on CE alone; that was a mistake, and top-1 is now a
-first-class gate.
+**Negative results are kept in the repo** (see `docs/FINDINGS.md` and the v121 branch files):
+4-gram/5-gram hashed contexts are worse than the 2-token prefix (sparsity), Kneser–Ney discounting
+improves CE slightly but costs top-1, two epochs overfit, and full-content chunked training is
+promising but ~30 min for 500 dialogues, so it was not scaled up.
 
-**2. The bottleneck is representation, not the merge rule.** Three probes, all run without training:
-
-- The three deep read-outs are 0.93–0.95 cosine-similar per position and 91–94 % linearly
-  reconstructible from each other — yet the existing sum is *better* than every alternative
-  (de-correlation 7.3660, L3-only 7.3718, current 7.3477). The merge was never the problem.
-- 1-NN retrieval on the layer states matches the linear read-out (0.45 % vs 0.43 %): there is no
-  hidden information the read-out fails to extract.
-- The deep state is the *best* available feature, not a liability: swapping the base head's feature
-  from the slow layer (τ=80) to the fast one (τ=10) makes things dramatically worse (CE 7.92, top-1 0.05 %).
-
-**3. Zero magic numbers (0.2.0.0).** Every rule is now self-scaling: the output head moves a
-direction-normalised step of `1/(t+1)`; the associative memory is an exponential average whose decay
-*is* the layer's membrane time constant (the same biological constants already in the system); the
-read-out mix is the normalised hit rate **above chance** (`1/V` is a structural quantity, not a
-tuned one). `γ` and both clamps are gone. On 500 dialogues this took held-out top-1 from 2.85 % to
-4.33 % — and, unlike the previous versions, nothing has to be re-tuned when the data or the model
-size changes.
-
-Also recorded, because negative results are results: GPU acceleration does **not** help this kernel.
-It is a 200-step Python loop of small ops, so it is kernel-launch bound (3.04 s/sample on GPU vs
-1.78 s on CPU). Batching makes it 15× faster but destroys the online local rules.
+Also recorded: GPU acceleration does **not** help this kernel (kernel-launch bound); batching makes it
+faster but destroys the online local rules.
 
 See [`docs/FINDINGS.md`](docs/FINDINGS.md) for the full chronology, including everything that failed.
 
@@ -198,6 +188,11 @@ RawHebb+bio+<a>.<b>.<c>.<d>.py   (four-segment version, no `v` prefix)
 |---|---|
 | 0.1.0.0 | first release. Kernel replaced with the pure-Hebbian `RawHebbKernel`; menu structure preserved; items 8/9 swapped to gradient-free equivalents; added held-out validation. |
 | 0.1.1.0 | fixes two measured defects in 0.1.0.0: (i) memory read-out normalised by RMS over the *whole* vocabulary, which amplified the few written channels by √N early in training (merged peak 44, CE 8.4 → 24.9) — now normalised only over channels that hold memory; (ii) `W_out` LMS switched to a relative step size, so it cannot diverge without an external watchdog. |
+| 0.2.0.0 | zero magic numbers: every learning rate, mixture coefficient and memory decay is self-scaling. |
+| 0.4.0.0 | cascade gain fix + multi-timescale read-out + online closed-form least squares. |
+| 0.6.0.0 | full-overwrite stochastic Newton read-out; first version past unigram on both CE and top-1 (old alignment). |
+| 0.7.x | token-identity memory experiments; all kept as negative results, none released. |
+| **0.10.0.0** | **fixes the target-shift bug; adds exact token-pair and hashed-prefix Hebbian memories; three-expert likelihood mixing; SEQ_LEN=128.** Full corpus: CE **3.269**, top-1 **38.62 %**, top-5 **62.99 %**. |
 
 ---
 
@@ -229,9 +224,14 @@ AGPL-3.0. See [`LICENSE`](LICENSE).
 **问答 mask 与防泄露**：user 段与格式 token 的 label 置 `-100`，只统计 assistant；
 训练/验证按**对话**切分，并做精确重复、跨集 sha1、user 前缀、8-gram 四项泄露检查（结果见 README）。
 
-**必须说清楚的现状**：模型目前停在 **unigram 水平**（CE 5.96 / unigram 5.88 / bigram 3.96，
-top-1 2.77%），还不是一个语言模型。仓库如实记录这一点。两条关键结论：
-① 之前的 CE 改善主要来自**校准**而非正确性——分解后底板的 top-1（5.63%）反而比整个模型（2.61%）好，
-γ 在 CE 与 top-1 之间零和；② 瓶颈在**表征**不在合并——三个探针都证明合并方式已经接近最优。
+**必须说清楚的现状（0.10.0.0）**：全量 2850 条 / 1 epoch 后，验证 **CE 3.269 / top-1 38.62% /
+top-5 62.99%**，两个口径都超过 bigram（CE 3.864 / top-1 27.82%）。这是修掉一个从 0.1.0.0 起就存在的
+**目标位移 off-by-one** 之后的结果：旧代码用 `logits[t]` 对 `labels[t+1]`，实际训练的是「隔一个
+token」的任务；同一份 0.6.0.0 权重在标准对齐下只有 top-1 2.68%。所以 **0.10.0.0 之前的全部数字
+都不能直接和现在比**。
+
+现在的记忆是三支并联：慢状态原型、精确 token 对计数（V×V，Hebbian 累加）、前缀哈希计数；
+三支权重由似然坐标下降在单纯形上自定，没有学习率、没有手填混合系数。负结果也保留在仓库：
+4/5-gram 更稀疏更差、KN 折扣 CE 略好但 top-1 掉、2 epoch 过拟合、全内容切窗训练太慢未放大。
 GPU 对这套内核**没有收益**（核启动受限），批量化会破坏在线局部规则。
 完整实验史（含全部失败项）见 `docs/FINDINGS.md`。

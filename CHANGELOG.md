@@ -3,7 +3,24 @@
 All notable changes to RawHebb. Versions follow `RawHebb+bio+<a>.<b>.<c>.<d>.py` (four segments, no `v` prefix);
 every change is a new file, older versions are kept verbatim.
 
-## [0.6.0.0] — current
+## [0.10.0.0] — current
+* **Fixed a target-shift bug present since 0.1.0.0.** `chat_to_ids` already returns
+  `labels[t] = token t+1`, but training/evaluation paired `logits[t]` with `labels[t+1]`, i.e. the
+  model was solving a two-step-ahead task. Scoring the same 0.6.0.0 checkpoint under both alignments:
+  old 12.58 % top-1 vs standard 2.68 %. All pre-0.10 numbers are on the old task and are not
+  directly comparable. The fix alone (500 dialogues) moved CE/top-1 from 5.87/12.6 % to 5.10/23.7 %.
+* Added two **pure Hebbian count memories**: an exact token-pair table `C[x,y] += 1` with
+  add-one/unigram-prior readout, and a hashed 2-token-prefix count table. They run alongside the
+  recurrent-state memory.
+* Added likelihood **coordinate descent** over the expert weights on the probability simplex
+  (base / pair / prefix). No learning rate, no hand-set mixture weight.
+* `SEQ_LEN = 128`; full corpus (2 850 dialogues, one epoch, CPU): held-out **CE 3.269,
+  top-1 38.62 %, top-5 62.99 %**, beating bigram (3.864 / 27.82 %) on both metrics.
+* Negative results kept in `research/`: 4/5-gram hashed contexts are worse (sparsity), Kneser–Ney
+  discounting trades CE for top-1, two epochs overfit, and full-content chunked training is too slow
+  at this scale.
+
+## [0.6.0.0]
 * The read-out update is now a proper **overwrite**: start from the least-squares solution `A^-1 B`
   and add one stochastic Newton correction `-A^-1 Σ(p−y)xᵀ` using the accumulated inverse Hessian.
   The external temperature calibration is deleted — the fit carries its own scale.

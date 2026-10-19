@@ -11,12 +11,14 @@ abstract: >-
   RawHebb is a pure forward-dynamics language model: leaky membrane integrators,
   threshold spikes and local synaptic plasticity, trained with no optimiser, no loss
   backward pass, no global gradient, no attention, and no hand-tuned magic constants.
-  Four local rules are the only things that change: an LMS output head, a Hebbian
-  associative memory, a readout gain, and per-layer readout weights. The repository
-  ships a single-file application plus the full research lineage and its diagnostics.
-  Current status, limitations and negative results are documented explicitly: the
-  model is at the unigram level, and cross-entropy and top-1 accuracy are shown to be
-  zero-sum under the current gain rule.
+  The local rules are the only things that change: a least-squares/Newton output head,
+  a recurrent-state associative memory, exact token-pair and hashed-prefix Hebbian
+  count memories, and per-layer readout weights. The repository ships a single-file
+  application plus the full research lineage and its diagnostics. On a held-out
+  150-dialogue split (full corpus, one epoch) the current release reaches CE 3.269,
+  top-1 38.62% and top-5 62.99%, beating a bigram baseline on both CE and top-1.
+  Negative results and the target-shift bug fixed in this release are documented
+  explicitly.
 keywords:
   - biologically plausible neural networks
   - local learning rules
@@ -25,4 +27,4 @@ keywords:
   - associative memory
   - language modelling
 license: AGPL-3.0
-version: 0.6.0.0
+version: 0.10.0.0

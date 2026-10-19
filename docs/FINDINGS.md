@@ -306,3 +306,67 @@ None of 0.7.x is released; 0.6.0.0 remains the best. The next step is not to rep
 memory but to **run both keys in parallel**, weighted by above-chance hit rate with a
 likelihood-fitted total volume — the same complementarity the closed-form probe found for
 embedding ⊕ four timescales (16.39 %) over any single scale (13 %).
+
+---
+
+## v121 (2026-10-20): the target-shift bug, and the jump past bigram
+
+### The bug
+
+`chat_to_ids` returns `labels[t] = token t+1`, the standard next-token target. Since 0.1.0.0 the
+training and evaluation code paired `logits[t]` with `labels[t+1]` instead — a **two-step-ahead**
+task. The error is invisible if you only look at the reported loss, because training and evaluation
+were wrong in the same way.
+
+Scoring the *same* 0.6.0.0 checkpoint under three alignments makes it unambiguous
+(`research/_v121_align_check.py`, 40 validation dialogues):
+
+| alignment | CE | top-1 | top-5 |
+|---|---|---|---|
+| old `logits[t]` vs `labels[t+1]` | 5.8714 | **12.58 %** | 24.04 % |
+| standard `logits[t]` vs `labels[t]` | 6.5219 | 2.68 % | 11.09 % |
+| `logits[t+1]` vs `labels[t+1]` | 6.5190 | 2.68 % | 11.06 % |
+
+The fix (`RawHebb+align+0.8.0.0.py`) changes only the target indices:
+`logits[:, :-1]` vs `labels[:, :-1]` in the loss and evaluation, and `tgt = labels[:, :T-1]` in the
+plasticity update. On the same 500-dialogue subset: CE 5.8714 → **5.1035**, top-1 12.58 % → **23.69 %**.
+
+**All numbers before 0.10.0.0 are on the old task.** They remain useful as a record of the dynamics,
+but they cannot be compared directly with current results.
+
+### Three Hebbian memories
+
+With the alignment fixed, the next bottleneck was modelling, not calibration:
+
+| version | what it adds | CE (500) | top-1 (500) | CE (full) | top-1 (full) |
+|---|---|---|---|---|---|
+| align 0.8.0.0 | alignment only | 5.1035 | 23.69 % | 4.9584 | 25.60 % |
+| aligncnt 0.8.0.0 | exact token-pair count table | 3.9406 | 29.60 % | 3.5751 | 31.74 % |
+| tri 0.9.25.0 | + hashed 2-token-prefix counts | 3.8394 | 34.79 % | 3.3156 | 37.50 % |
+| **seq128tri 0.9.33.0** | + `SEQ_LEN=128` | 3.8069 | 35.38 % | **3.2690** | **38.62 %** |
+
+The pair table is pure Hebbian `C[x,y] += 1`; the prefix table uses the same rule on a hashed key.
+Both are read out as smoothed conditional distributions; the three experts are mixed by coordinate
+descent on the likelihood over the probability simplex. No learning rate, no hand-set mixture weight.
+
+### What did not work (kept as branches)
+
+* **4-gram / 5-gram hashed contexts**: worse (CE 3.96 / 3.94, top-1 30.9 % / 31.3 % at 500)
+  because longer contexts are sparse and collide in the hash table.
+* **Kneser–Ney absolute discounting**: CE slightly better (3.834 vs 3.839) but top-1 drops
+  (30.9 % vs 34.8 %). The discount is estimated from count-of-counts, but it hurts ranking here.
+* **Two epochs**: overfits (500: CE 4.005 vs 3.839; full: 3.442 vs 3.269), although full-data top-1
+  rises slightly (38.94 %). One epoch is the better CE operating point.
+* **Full-content chunked training**: uses all answer tokens (multi-window) but costs ~30 min for 500
+  dialogues; at that scale it does not beat the tail-window model on both metrics.
+* **Micro-variants** of the base head (intercept, extra Newton steps, coupling 0.5→1, disabling the
+  dead spike path) are within noise: the pair/prefix experts dominate the readout.
+* **Seed noise** on 500 dialogues is about ±0.08 CE and ±1 % top-1; full-corpus seeds 43/44/45 are
+  consistent (tri: 3.316 / 3.325; seq128tri: 3.269 / 3.358).
+
+### v121 experimental artefacts
+
+`RawHebb+lab+0.9.0.0.py` is the switchboard (alignment, pair/prefix experts, mixture rules, bias,
+Newton steps, coupling, chunking). `_v121_gen*.py` generate one standalone file per variant; all are
+kept. Diagnostics: `_v121_align_check.py`, `_v121_pair_ref*.py`, `_v121_sweep.py`,
+`_v121_eval150.py`, `_v121_crosseval.py`.
