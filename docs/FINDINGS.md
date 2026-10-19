@@ -265,3 +265,44 @@ metrics, at 1/6th of the data of some earlier runs and with no tuned constants a
 
 Scaling on the same configuration: 500 dialogues → CE 5.949 / top-1 12.06 %;
 2 850 dialogues → CE 5.862 / top-1 14.85 %. More data still helps, and nothing had to be re-tuned.
+
+
+---
+
+## 0.7.x — a negative result: keying the memory on token identity
+
+After 0.6.0.0 the remaining gap to a bigram (CE 3.96) is a modelling problem. A bigram table stores
+*exact* token-to-token associations; our memory column is an average of slowly-varying states, so the
+column prototypes end up mutually collinear and can only store a vague direction.
+
+The idea: key the memory on the **current token's embedding** instead of the slow state, so column
+`y` becomes "the average embedding of tokens that were followed by `y`" — a bigram table compressed
+to `H` dimensions, with the same parameter count (`H × V`).
+
+Four variants were tried (500 dialogues, one epoch, same seed; 0.6.0.0 scores CE 5.949 / top-1 12.06 %):
+
+| version | memory read-out | CE | top-1 |
+|---|---|---|---|
+| 0.6.0.0 | slow-state key, z-scored (baseline) | **5.949** | 12.06 % |
+| 0.7.0.0 | token key, z-scored | 11.14 | 1.11 % |
+| 0.7.1.0 | token key, raw inner product | 47.33 | 0.49 % |
+| 0.7.2.0 | token key, **cosine** | 6.773 | **14.04 %** |
+| 0.7.3.0 | cosine + volume `β` fitted by likelihood | 6.751 | 13.28 % |
+
+**The idea half-works and is worth recording.** Keying on token identity clearly improves the
+*ranking* (12.06 % → 14.04 % top-1). But the probabilities stay wrong: even when the total volume
+`β` is fitted by maximum likelihood on the current window (0.7.3.0), CE stays at 6.75 instead of
+returning to 5.95. So the problem is not the volume — it is the *shape* of what the memory branch
+emits: confidently and systematically wrong.
+
+Two useful mechanisms from the failures:
+
+* dividing by the standard deviation (z-score) **amplifies the noise of evidence-free columns** to
+  unit variance — that alone cost 5 nats (CE 11.14);
+* raw inner products blow up when columns coincide (CE 47.33). Cosine is the bounded, meaningful
+  measure of "how specifically does this token follow this context".
+
+None of 0.7.x is released; 0.6.0.0 remains the best. The next step is not to replace the slow-state
+memory but to **run both keys in parallel**, weighted by above-chance hit rate with a
+likelihood-fitted total volume — the same complementarity the closed-form probe found for
+embedding ⊕ four timescales (16.39 %) over any single scale (13 %).
