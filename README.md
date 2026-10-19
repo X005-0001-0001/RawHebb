@@ -5,7 +5,7 @@ Purely forward dynamics — leaky membrane integrators, threshold spikes, and lo
 plasticity. No optimiser, no loss backward pass, no global gradient, no attention, no hand-tuned
 magic constants.
 
-> Branch `bio` · current release **0.1.0.0** · license **AGPL-3.0**
+> Branch `bio` · current release **0.1.1.0** · license **AGPL-3.0**
 
 中文速览见 [中文说明](#中文说明)。
 
