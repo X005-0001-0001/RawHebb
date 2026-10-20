@@ -14,6 +14,11 @@ every change is a new file, older versions are kept verbatim.
 * **Seeds:** CE 3.1772 / 3.1824 / 3.1783 (mean 3.1793), top-1 40.43 / 40.49 / 40.31 %, top-5 63.69 / 63.54 / 63.75 %.
 * Rejected and kept as branches: last-successor copy, prompt copy, top-1 mixture objective, and the
   64k 4-gram. The v123 capacity scan and all earlier negative results are unchanged.
+* **Naming correction (2026-10-20).** The key uses `_tri_base = 4096` and `FOURGRAM_BUCKETS = 4096`,
+  so `((p3 * 4096 + p2) * 4096 + p1) % 4096 = p1`. The 4k expert is therefore a **last-token count
+  table interpolated with the trigram prior**, not a strict 4-gram; the measured score is unchanged.
+  A true 4-gram key (base 4099) is much worse (3.5714 at 500 dialogues), so the collapsed backoff is
+  kept deliberately. The earlier 5-gram negative used the same collapse and is not a true 5-gram test.
 
 ## [0.12.0.0]
 * **Scaled the hidden width 128 -> 416** (SEQ_LEN=128, fixed file order, tri prior 4, 64k tri buckets).

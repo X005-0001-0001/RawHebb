@@ -553,6 +553,76 @@ The 4k variant is the overall 0.13.0.0 champion; 8k is kept as the top-5 branch.
 finally paid off after the 64k-bucket zero-weight result: the bucket width is the architecture
 quantity that controls the sparsity/generalisation trade-off.
 
+### v129: true 4-gram / 5-gram keys are worse than the collapsed backoff
+
+Adding FOUR_BASE = 4099 / FIVEGRAM_BASE = 4099 makes the keys use all context
+tokens. At 500 dialogues (baseline collapsed-4-gram 3.5525 / 37.80 / 59.89):
+
+| model | CE | top-1 | top-5 | four weight | five weight |
+|---|---|---|---|---|---|
+| true 4-gram | 3.5714 | 37.80 % | 59.33 % | 4.5e-5 | - |
+| true 4+5-gram | 3.5714 | 37.80 % | 59.33 % | 3.1e-5 | 3.5e-5 |
+
+A true 4-gram is too sparse at this data size; the **trigram prior + last-token
+count** backoff (0.13) is better than a strict 4-gram. This is a negative result for
+higher-order contexts, not a bug fix that improves the score.
+
+### Correction (0.13): the "4-gram" key collapses to the last token
+
+The 0.13 4-gram hash uses _tri_base = 4096 (next power of two above vocab) and
+FOURGRAM_BUCKETS = 4096, so
+
+    key = ((p3 * 4096 + p2) * 4096 + p1) % 4096 = p1
+
+The table is therefore a **last-token count** (a global bigram) interpolated with the
+**trigram prior** _tp. That combination is real and is what improved 0.11 -> 0.13;
+it is not a true 4-gram. The 5-gram file had the same collapse, so the v125 5-gram
+negative is invalid for a true 5-gram. Branches 0.9.175.0 / 0.9.176.0 use a separate
+FOUR_BASE = 4099 (first prime above 4096) and FIVEGRAM_BASE = 4099 to make the
+keys use all context tokens; they are the correct order-4/order-5 tests.
+
+### v125: 5-gram is too sparse at every tested width
+
+The 4-gram success suggested a 5-gram with 4-gram backoff. At 500 dialogues (hidden416 + 4-gram 4k,
+baseline 3.5525 / 37.80 / 59.89), the 5-gram table gets essentially no mixture weight:
+
+| 5-gram buckets | CE | top-1 | fitted weight |
+|---|---|---|---|
+| 4096 | 3.5524 | 37.79 % | 0.0006 |
+| 2048 | 3.5526 | 37.79 % | 0.0001 |
+| 1024 | 3.5521 | 37.83 % | 8.8e-6 |
+| 512 | 3.5522 | 37.83 % | 7.3e-6 |
+
+The table is populated (~62 700 counts), but each 5-gram context is almost unique; the 4-gram
+expert already captures what generalises. The tiny CE/top-1 differences are noise. **5-gram is a
+negative result; the 4-gram is the right order for this corpus.**
+
+### v130: position-wise count experts are dead
+
+Counting P(z | c1) or P(z | c2) (exact V×V tables, trigram prior) gives
+3.5549 / 37.67 / 59.91 and 3.5527 / 37.80 / 59.89 at 500 dialogues, against the
+3.5525 / 37.80 / 59.89 collapsed-4-gram baseline. Fitted weights are 1.2e-5 and
+1.4e-5: the trigram prior already carries the context; the last-token count is the
+only order-4-style table that earns weight.
+
+### v131: count scope and an explicit unigram expert
+
+* PAIR_SCOPE = 'all' (count user and assistant tokens, not only assistant targets):
+  500 dialogues 3.5522 / 37.80 / 59.90, a 0.0003 CE / 0.01 top-5 change versus the
+  mask scope. The full 2850 run gives 3.1771 / 40.42 / 63.68, versus 3.1772 / 40.43 /
+  63.69 for the mask scope: no gain, so the mask scope is retained.
+* UNIGRAM_EXPERT = True: 3.5525 / 37.78 / 59.89, fitted weight 2.6e-5; redundant with
+  the unigram prior and dead.
+
+### v132: trigram counts with the pair distribution as prior
+
+The symmetric backoff chain (pair + unigram, trigram + pair, last-token + trigram)
+was tested at 500 dialogues: 3.5525 / 37.77 / 59.92, versus 3.5525 / 37.80 / 59.89
+for 0.13. The trigram-plus-pair expert earns a 0.0095 weight but does not change CE. The full
+2850 run gives 3.1772 / 40.44 / 63.69 versus 3.1772 / 40.43 / 63.69 for 0.13: a
+0.01-point top-1 change, no CE/top-5 gain. The 0.13 mixture is already the right
+backoff chain; 0.13.0.0 is retained as the champion.
+
 ### A methodology bug worth recording
 
 The first v123 batch generated branch files with names such as 

@@ -161,6 +161,12 @@ backoff) to the hidden-416 base. It improves over 0.12.0.0 by 0.0174 CE, 0.09 po
 3.2248 / 3.2246 / 3.2182 / 3.2076 / 3.2061 / 3.2006 / 3.1946 for hidden 192 / 224 / 256 / 288 / 352 /
 384 / 416, and hidden352 still has the best top-1 of the no-4-gram family (40.61 %).
 
+> **Naming correction (2026-10-20).** The 0.13.0.0 key uses `_tri_base = 4096` and
+> `FOURGRAM_BUCKETS = 4096`, so the 4-gram hash collapses to the last token: it is a
+> last-token count table interpolated with the trigram prior, not a strict 4-gram. The measured
+> score is unchanged; a true 4-gram key is much worse (see `docs/FINDINGS.md`, v129). The release
+> label is kept for lineage.
+
 **The decisive finding of this release: a target-shift bug that had been present since 0.1.0.0.**
 `chat_to_ids` already returns `labels[t] = token t+1` (the standard next-token target), but the
 training/evaluation code paired `logits[t]` with `labels[t+1]`, i.e. it was solving a **two-step-ahead**
@@ -263,6 +269,9 @@ top-5 63.69%**（hidden416 + 4-gram 4k；0.12 是 3.1946/40.34/63.52）。同窗
 0.13.0.0 在 hidden416 上加 4-gram 计数专家（4k 桶，tri 先验回退），比 0.12 三项全好：
 CE -0.0174、top-1 +0.09、top-5 +0.17。8k 桶变体的 top-5 更高（63.84%），但 CE/top-1 略低，
 作为 top-5 分支保留。4-gram 64k 桶曾因太稀疏而权重≈0；4k/8k 桶才让它生效。
+**命名更正：** 0.13 的 key 因 `_tri_base = 4096` 与 `FOURGRAM_BUCKETS = 4096` 相同而塌缩成最后一个
+token，实际是「last-token 计数 + trigram 先验」，不是严格 4-gram；分数不变，真 4-gram 明显更差
+（FINDINGS v129）。
 **种子：** 三种子 CE 3.1772/3.1824/3.1783（均值 3.1793），top-1 40.43/40.49/40.31%（均值 40.41%），top-5 63.69/63.54/63.75%（均值 63.66%）。见 `docs/FINDINGS.md`。
 
 现在的记忆是三支并联：慢状态原型、精确 token 对计数（V×V，Hebbian 累加）、前缀哈希计数；
