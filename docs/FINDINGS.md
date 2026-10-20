@@ -636,7 +636,7 @@ principled value. At 500 dialogues (baseline 3.5525 / 37.80 / 59.89):
 
 The full 2850 run gives 3.1773 / **40.53** / 63.67, versus 3.1772 / 40.43 / 63.69 for
 0.13: CE +0.0001 and top-5 -0.02 are a wash, top-1 is +0.10. Prior 1 is therefore a
-**top-1 tradeoff branch**, not an all-three champion; 0.13.0.0 keeps the CE/top-5 crown.
+**top-1 tradeoff branch**, not an all-three champion; 0.14.0.0 later takes the CE/top-5 crown with the bag prior.
 
 ### v134: hidden352 + 4k does not recover the top-1 crown
 
@@ -644,6 +644,36 @@ The 0.12 hidden352 branch has the best top-1 of the no-4-gram family (40.61 %, C
 3.2061). Adding the 4k expert gives 3.1893 / 40.50 / 63.40: CE improves by 0.017,
 but top-1 falls to 40.50, so it does not beat the 0.12 hidden352 top-1 branch.
 The top-1 ranking remains 0.12 hidden352 40.61, fprior1 40.53, hidden352+4k 40.50.
+
+### v135: a bag-of-past-tokens prior
+
+Two uses of the exact pair table as a bag-of-past-tokens distribution (all past window
+tokens, causal cumulative counts) at 500 dialogues, baseline 3.5525 / 37.80 / 59.89:
+
+| branch | CE | top-1 | top-5 | fitted weight |
+|---|---|---|---|---|
+| independent bag expert | 3.5534 | 37.76 % | 59.79 % | 0.0152 |
+| four expert with bag prior (instead of trigram prior) | **3.5483** | 37.66 % | 59.78 % | 0.077 |
+
+The bag prior lowers CE by 0.0042 but costs 0.14 top-1 / 0.11 top-5 at 500. On the
+full 2850 corpus the four-bag branch gives **3.1740 / 40.43 / 63.77**, versus
+3.1772 / 40.43 / 63.69 for 0.13: CE **-0.0032**, top-1 equal, top-5 **+0.08**. This is
+the first branch after 0.13 that is not worse on any metric. The three seeds are:
+
+| seed | CE | top-1 | top-5 |
+|---|---|---|---|
+| 43 | 3.1740 | 40.43 % | 63.77 % |
+| 44 | 3.1773 | 40.53 % | 63.72 % |
+| 45 | 3.1753 | 40.40 % | 63.79 % |
+| mean | **3.1755** | **40.45 %** | **63.76 %** |
+
+The 0.13 means are 3.1793 / 40.41 % / 63.66 %, so all three improve; this branch is
+promoted to **0.14.0.0**.
+
+A geometric pool of the trigram and bag priors (sqrt(tri * bag), renormalised) gives
+3.5476 / 37.64 / 59.93 at 500, versus 3.5483 / 37.66 / 59.78 for the pure bag prior:
+CE -0.0007 and top-5 +0.15, top-1 -0.02. It is a candidate CE branch but not yet run
+full.
 
 ### A methodology bug worth recording
 

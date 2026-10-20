@@ -5,7 +5,7 @@ Purely forward dynamics — leaky membrane integrators, threshold spikes, and lo
 plasticity. No optimiser, no loss backward pass, no global gradient, no attention, no hand-tuned
 magic constants.
 
-> Branch `bio` · current release **0.13.0.0** · license **AGPL-3.0**
+> Branch `bio` · current release **0.14.0.0** · license **AGPL-3.0**
 
 中文速览见 [中文说明](#中文说明)。
 
@@ -55,11 +55,13 @@ RawHebb+bio+0.5.0.0.py      single-file application (kept for history - see belo
 RawHebb+bio+0.6.0.0.py      single-file application (kept for history)
 RawHebb+bio+0.11.0.0.py     single-file application (kept for history)
 RawHebb+bio+0.12.0.0.py     single-file application (kept for history)
-RawHebb+bio+0.13.0.0.py     single-file application, current
+RawHebb+bio+0.13.0.0.py     single-file application (kept for history)
+RawHebb+bio+0.14.0.0.py     single-file application, current
 RawHebb+seq128tri+0.9.33.0.py  the exact v121 experimental branch that became 0.10.0.0
 RawHebb+trinoshuf+0.9.52.0.py  the exact v122 experimental branch that became 0.11.0.0
 RawHebb+tri4buck64hidden416+0.9.137.0.py  the exact v123 branch that became 0.12.0.0
 RawHebb+tri4buck64hidden416four4k+0.9.164.0.py  the exact v124b branch that became 0.13.0.0
+RawHebb+tri4buck64hidden416four4kfourbagprior+0.9.186.0.py  the exact v135 branch that became 0.14.0.0
 RawHebb+tri4buck64hidden416four8k+0.9.158.0.py  best top-5 branch (63.84 %), lower CE/top-1
 RawHebb+tri4buck64hidden352+0.9.127.0.py  best top-1 branch of v123 (40.61 %)
 RawHebb+lab+0.9.0.0.py      v121 experiment bench (all switches)
@@ -144,28 +146,31 @@ Full corpus (2 850 dialogues, one epoch, CPU), held-out 150 dialogues. The model
 the same last-128-token windows it trains on (18 900 scored assistant tokens); the n-gram baselines
 below use exactly the same windows and mask (see `research/_v122_bigram_ref.py`):
 
-| metric | **0.13.0.0** | 0.12.0.0 | bigram (unigram-prior, same window) | bigram add-1 | unigram add-1 | old 0.6.0.0* |
+| metric | **0.14.0.0** | 0.13.0.0 | bigram (unigram-prior, same window) | bigram add-1 | unigram add-1 | old 0.6.0.0* |
 |---|---|---|---|---|---|---|
-| cross-entropy | **3.177** | 3.195 | 3.809 | 4.456 | 5.785 | 5.862 |
-| top-1 | **40.43 %** | 40.34 % | 31.32 % | 31.39 % | 4.83 % | 14.85 % |
-| top-5 | **63.69 %** | 63.52 % | 58.05 % | 58.07 % | 15.85 % | 27.17 % |
+| cross-entropy | **3.174** | 3.177 | 3.809 | 4.456 | 5.785 | 5.862 |
+| top-1 | **40.43 %** | 40.43 % | 31.32 % | 31.39 % | 4.83 % | 14.85 % |
+| top-5 | **63.77 %** | 63.69 % | 58.05 % | 58.07 % | 15.85 % | 27.17 % |
 
 \* 0.6.0.0 was measured on the old two-step-ahead task; it is shown for lineage only and is not
 directly comparable.
 
 The model is **better than a window-matched bigram on CE, top-1 and top-5**, with no
-back-propagation anywhere. 0.13.0.0 adds a 4-gram count expert (4k hashed buckets, tri-prior
-backoff) to the hidden-416 base. It improves over 0.12.0.0 by 0.0174 CE, 0.09 points top-1 and
-0.17 points top-5. The 8k-bucket variant keeps the best top-5 (63.84 %) but gives up 0.39 top-1 and
-0.0091 CE, so it is kept as a top-5 branch. **Seed robustness:** three hidden-416+4k seeds give CE 3.1772 / 3.1824 / 3.1783 (mean 3.1793), top-1 40.43 / 40.49 / 40.31 % (mean 40.41 %) and top-5 63.69 / 63.54 / 63.75 % (mean 63.66 %). The capacity scan remains
-3.2248 / 3.2246 / 3.2182 / 3.2076 / 3.2061 / 3.2006 / 3.1946 for hidden 192 / 224 / 256 / 288 / 352 /
-384 / 416, and hidden352 still has the best top-1 of the no-4-gram family (40.61 %).
+back-propagation anywhere. 0.14.0.0 keeps the hidden-416 base and the 4k count expert, but the
+four expert now uses a **bag-of-past-tokens prior** (the exact pair table accumulated over the
+window, causal) instead of the trigram prior. It improves 0.13.0.0 by 0.0032 CE and 0.08 points
+top-5 at equal top-1. **Seed robustness:** three seeds give CE 3.1740 / 3.1773 / 3.1753 (mean
+3.1755), top-1 40.43 / 40.53 / 40.40 % (mean 40.45 %) and top-5 63.77 / 63.72 / 63.79 % (mean
+63.76 %); the 0.13.0.0 means are 3.1793 / 40.41 % / 63.66 %, so all three improve. The 8k-bucket
+variant still has the best single top-5 (63.84 %) and is kept as a top-5 branch. The capacity scan
+remains 3.2248 / 3.2246 / 3.2182 / 3.2076 / 3.2061 / 3.2006 / 3.1946 for hidden 192 / 224 / 256 /
+288 / 352 / 384 / 416, and hidden352 still has the best top-1 of the no-bag family (40.61 %).
 
-> **Naming correction (2026-10-20).** The 0.13.0.0 key uses `_tri_base = 4096` and
-> `FOURGRAM_BUCKETS = 4096`, so the 4-gram hash collapses to the last token: it is a
-> last-token count table interpolated with the trigram prior, not a strict 4-gram. The measured
-> score is unchanged; a true 4-gram key is much worse (see `docs/FINDINGS.md`, v129). The release
-> label is kept for lineage.
+> **Naming correction (2026-10-20).** The 0.13.0.0 / 0.14.0.0 key uses `_tri_base = 4096` and
+> `FOURGRAM_BUCKETS = 4096`, so the 4-gram hash collapses to the last token: it is a last-token
+> count table, not a strict 4-gram. 0.13 interpolates it with the trigram prior; 0.14 with the
+> bag-of-past prior. The measured scores are unchanged; a true 4-gram key is much worse (see
+> `docs/FINDINGS.md`, v129). The release labels are kept for lineage.
 
 **The decisive finding of this release: a target-shift bug that had been present since 0.1.0.0.**
 `chat_to_ids` already returns `labels[t] = token t+1` (the standard next-token target), but the
@@ -227,7 +232,8 @@ RawHebb+bio+<a>.<b>.<c>.<d>.py   (four-segment version, no `v` prefix)
 | 0.10.0.0 | fixes the target-shift bug; adds exact token-pair and hashed-prefix Hebbian memories; three-expert likelihood mixing; SEQ_LEN=128. Full corpus: CE 3.269, top-1 38.62 %, top-5 62.99 %. |
 | 0.11.0.0 | fixes the training order (no shuffle). Three full-corpus seeds: CE 3.2581 / 3.2608 / 3.2552, top-1 38.70 / 38.63 / 38.86 %, top-5 63.02 / 63.04 / 63.08 %. Corrected window-matched bigram: CE 3.809, top-1 31.32 %. |
 | 0.12.0.0 | scales the hidden width 128 → 416 (fixed order, tri prior 4, 64k tri buckets). Full corpus: CE 3.1946, top-1 40.34 %, top-5 63.52 %. Capacity scan 192–416; top-1 peaks at hidden 352 (40.61 %). New cache branches and a 64k-bucket 4-gram were rejected. |
-| **0.13.0.0** | **adds a 4-gram count expert with 4k hashed buckets** and tri-prior backoff. Full corpus: CE **3.1772**, top-1 **40.43 %**, top-5 **63.69 %**, beating 0.12.0.0 on all three. The 8k variant keeps the best top-5 (63.84 %). The 64k 4-gram was a hash-sparsity failure, not a dead idea. |
+| 0.13.0.0 | adds the 4k count expert (last-token table + trigram prior; the hash key collapses, see the naming correction above). Full corpus: CE 3.1772, top-1 40.43 %, top-5 63.69 %, beating 0.12.0.0 on all three. The 8k variant keeps the best top-5 (63.84 %). |
+| **0.14.0.0** | **replaces the four expert's trigram prior with a bag-of-past-tokens prior** (exact pair table accumulated over the window, causal; no new counts or constants). Full corpus seed43: CE **3.1740**, top-1 **40.43 %**, top-5 **63.77 %**. Three seeds: 3.1740 / 3.1773 / 3.1753 (mean 3.1755), 40.43 / 40.53 / 40.40 % (mean 40.45 %), 63.77 / 63.72 / 63.79 % (mean 63.76 %); the 0.13 means are 3.1793 / 40.41 % / 63.66 %. |
 
 ---
 
@@ -259,25 +265,31 @@ AGPL-3.0. See [`LICENSE`](LICENSE).
 **问答 mask 与防泄露**：user 段与格式 token 的 label 置 `-100`，只统计 assistant；
 训练/验证按**对话**切分，并做精确重复、跨集 sha1、user 前缀、8-gram 四项泄露检查（结果见 README）。
 
-**必须说清楚的现状（0.13.0.0）**：全量 2850 条 / 1 epoch 后，验证 **CE 3.1772 / top-1 40.43% /
-top-5 63.69%**（hidden416 + 4-gram 4k；0.12 是 3.1946/40.34/63.52）。同窗口、同 mask 的 bigram
+**必须说清楚的现状（0.14.0.0）**：全量 2850 条 / 1 epoch 后，验证 **CE 3.1740 / top-1 40.43% /
+top-5 63.77%**（hidden416 + 4k 计数专家 + past-token bag 先验；0.13 是 3.1772/40.43/63.69）。
+同窗口、同 mask 的 bigram
 （unigram 先验）是 CE 3.809 / top-1 31.32% / top-5 58.05%，add-1 bigram 是 CE 4.456 / top-1
 31.39%；**三个指标都超过 bigram**。旧版本还修掉了从 0.1.0.0 起就存在的 **目标位移 off-by-one**：
 旧代码用 `logits[t]` 对 `labels[t+1]`，实际训练的是「隔一个 token」的任务；同一份 0.6.0.0 权重
 在标准对齐下只有 top-1 2.68%，所以 **0.10.0.0 之前的数字不能直接比**。
 
-0.13.0.0 在 hidden416 上加 4-gram 计数专家（4k 桶，tri 先验回退），比 0.12 三项全好：
+0.14.0.0 在 0.13 的 hidden416 + 4k 计数专家上，把 four 专家的先验从 trigram 分布换成
+**窗口内过去 token 的 bag 分布**：复用精确 pair 表做累计计数，没有新表、没有新常数。
+相对 0.13：CE -0.0032、top-5 +0.08、top-1 持平。三种子 CE 3.1740/3.1773/3.1753（均值
+**3.1755**），top-1 40.43/40.53/40.40%（均值 **40.45%**），top-5 63.77/63.72/63.79%（均值
+**63.76%**）；0.13 均值 3.1793/40.41%/63.66%，三项均改善。见 `docs/FINDINGS.md`。
+
+0.13.0.0 在 hidden416 上加 4k 计数专家（last-token 表 + trigram 先验回退），比 0.12 三项全好：
 CE -0.0174、top-1 +0.09、top-5 +0.17。8k 桶变体的 top-5 更高（63.84%），但 CE/top-1 略低，
 作为 top-5 分支保留。4-gram 64k 桶曾因太稀疏而权重≈0；4k/8k 桶才让它生效。
-**命名更正：** 0.13 的 key 因 `_tri_base = 4096` 与 `FOURGRAM_BUCKETS = 4096` 相同而塌缩成最后一个
-token，实际是「last-token 计数 + trigram 先验」，不是严格 4-gram；分数不变，真 4-gram 明显更差
-（FINDINGS v129）。
-**种子：** 三种子 CE 3.1772/3.1824/3.1783（均值 3.1793），top-1 40.43/40.49/40.31%（均值 40.41%），top-5 63.69/63.54/63.75%（均值 63.66%）。见 `docs/FINDINGS.md`。
+**命名更正：** 0.13/0.14 的 key 因 `_tri_base = 4096` 与 `FOURGRAM_BUCKETS = 4096` 相同而塌缩成
+最后一个 token，实际是「last-token 计数」专家，不是严格 4-gram；0.13 用 trigram 先验，0.14 用
+bag 先验。分数不变，真 4-gram 明显更差（FINDINGS v129）。
 
 现在的记忆是三支并联：慢状态原型、精确 token 对计数（V×V，Hebbian 累加）、前缀哈希计数；
 三支权重由似然坐标下降在单纯形上自定，没有学习率、没有手填混合系数。负结果也保留在仓库：
 4/5-gram 更稀疏更差、KN 折扣 CE 略好但 top-1 掉、2 epoch 过拟合、全内容切窗训练太慢未放大；
 v123/v124 又排除了 order/prior/bucket/seq/layers、lastcopy/promptcopy/4-gram/top1mix。
-GPU 对这套内核**没有收益**（核启动受限）：同一 50 条，CPU 6 秒、RTX 5080 47 秒；
+GPU 对这套内核**没有收益**（核启动受限）：最新 50 条对照，CPU 约 69 秒、RTX 5080 78 秒；
 批量化会破坏在线局部规则。
 完整实验史（含全部失败项）见 `docs/FINDINGS.md`。

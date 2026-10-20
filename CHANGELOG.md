@@ -3,7 +3,20 @@
 All notable changes to RawHebb. Versions follow `RawHebb+bio+<a>.<b>.<c>.<d>.py` (four segments, no `v` prefix);
 every change is a new file, older versions are kept verbatim.
 
-## [0.13.0.0] - current
+## [0.14.0.0] - current
+* **Bag-of-past-tokens prior for the four expert.** The exact pair table is accumulated causally
+  over the window and used as the prior for the last-token count expert, replacing the trigram
+  prior; no new counts, tables or constants. Full corpus seed43: CE **3.1740**, top-1 **40.43 %**,
+  top-5 **63.77 %**, versus 3.1772 / 40.43 % / 63.69 % for 0.13.0.0 (CE -0.0032, top-5 +0.08,
+  top-1 equal).
+* **Seeds:** CE 3.1740 / 3.1773 / 3.1753 (mean **3.1755**), top-1 40.43 / 40.53 / 40.40 % (mean
+  **40.45 %**), top-5 63.77 / 63.72 / 63.79 % (mean **63.76 %**). The 0.13 means are 3.1793 /
+  40.41 % / 63.66 %, so all three improve.
+* Rejected in v135: an independent bag expert (3.5534 at 500), the true 4-gram / 5-gram keys
+  (3.5714, weight ≈0), position-wise counts, `PAIR_SCOPE='all'` (full 3.1771 / 40.42 / 63.68),
+  and the geometric trigram/bag pool (500 3.5476, not run full). All are kept as branches.
+
+## [0.13.0.0]
 * **4-gram count expert, 4k hashed buckets, tri-prior backoff.** On top of the hidden-416 base:
   full corpus CE **3.1772**, top-1 **40.43 %**, top-5 **63.69 %**, versus 3.1946 / 40.34 % / 63.52 %
   for 0.12.0.0. It beats 0.12 on all three metrics. The 8k-bucket variant keeps the best top-5

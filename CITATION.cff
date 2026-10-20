@@ -15,9 +15,9 @@ abstract: >-
   a recurrent-state associative memory, exact token-pair and hashed-prefix Hebbian
   count memories, and per-layer readout weights. The repository ships a single-file
   application plus the full research lineage and its diagnostics. On a held-out
-  150-dialogue split (full corpus, one epoch) the current release reaches CE 3.177,
-  top-1 40.43% and top-5 63.69%, beating a window-matched bigram baseline (CE 3.809,
-  top-1 31.32%) on all three metrics. Negative results, the target-shift bug fixed in
+  150-dialogue split (full corpus, one epoch) the current release reaches CE 3.174,
+  top-1 40.43% and top-5 63.77% (three-seed mean 3.1755 / 40.45% / 63.76%), beating a
+  window-matched bigram baseline (CE 3.809, top-1 31.32%) on all three metrics. Negative results, the target-shift bug fixed in
   0.10.0.0, and the corrected n-gram reference are documented explicitly.
 keywords:
   - biologically plausible neural networks
@@ -27,4 +27,4 @@ keywords:
   - associative memory
   - language modelling
 license: AGPL-3.0
-version: 0.13.0.0
+version: 0.14.0.0
