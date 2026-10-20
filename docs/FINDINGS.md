@@ -536,7 +536,7 @@ plateaued). Both beat the baseline on CE and top-1. Full
 backoff becomes 0.13.0.0; otherwise it stays a documented near-miss. The lesson is that the earlier
 4-gram negative was a **hash-sparsity** failure, not evidence that 4-grams are useless.
 
-### v124b full corpus: the 4-gram gain survives, with a top-1 trade-off
+### v124b full corpus: the 4-gram gain survives; 8k trades top-1 for top-5
 
 | model | CE | top-1 | top-5 |
 |---|---|---|---|
