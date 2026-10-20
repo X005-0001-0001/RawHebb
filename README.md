@@ -5,7 +5,7 @@ Purely forward dynamics — leaky membrane integrators, threshold spikes, and lo
 plasticity. No optimiser, no loss backward pass, no global gradient, no attention, no hand-tuned
 magic constants.
 
-> Branch `bio` · current release **0.12.0.0** · license **AGPL-3.0**
+> Branch `bio` · current release **0.13.0.0** · license **AGPL-3.0**
 
 中文速览见 [中文说明](#中文说明)。
 
@@ -54,11 +54,14 @@ RawHebb+bio+0.4.0.0.py      single-file application (kept for history)
 RawHebb+bio+0.5.0.0.py      single-file application (kept for history - see below, it regressed)
 RawHebb+bio+0.6.0.0.py      single-file application (kept for history)
 RawHebb+bio+0.11.0.0.py     single-file application (kept for history)
-RawHebb+bio+0.12.0.0.py     single-file application, current
+RawHebb+bio+0.12.0.0.py     single-file application (kept for history)
+RawHebb+bio+0.13.0.0.py     single-file application, current
 RawHebb+seq128tri+0.9.33.0.py  the exact v121 experimental branch that became 0.10.0.0
 RawHebb+trinoshuf+0.9.52.0.py  the exact v122 experimental branch that became 0.11.0.0
 RawHebb+tri4buck64hidden416+0.9.137.0.py  the exact v123 branch that became 0.12.0.0
-RawHebb+tri4buck64hidden352+0.9.127.0.py  best top-1 branch (40.61 %), lower CE than 0.12
+RawHebb+tri4buck64hidden416four4k+0.9.164.0.py  the exact v124b branch that became 0.13.0.0
+RawHebb+tri4buck64hidden416four8k+0.9.158.0.py  best top-5 branch (63.84 %), lower CE/top-1
+RawHebb+tri4buck64hidden352+0.9.127.0.py  best top-1 branch of v123 (40.61 %)
 RawHebb+lab+0.9.0.0.py      v121 experiment bench (all switches)
 research/                   research lineage, v121-v124 diagnostics, branches and generators
 docs/FINDINGS.md            what worked, what did not, and the measured numbers
@@ -96,16 +99,16 @@ that substitution is stated in the menu itself rather than hidden.
 
 ```bash
 # 1. kernel self-test (no data needed, < 30 s)
-python "RawHebb+bio+0.12.0.0.py" --selftest
+python "RawHebb+bio+0.13.0.0.py" --selftest
 
 # 2. split a corpus into train/val by dialogue, with leak checks
-python "RawHebb+bio+0.12.0.0.py" --split
+python "RawHebb+bio+0.13.0.0.py" --split
 
 # 3. train (add --fresh to skip the warm start from brain.pt)
-python "RawHebb+bio+0.12.0.0.py" --train --train-file train.jsonl --epochs 1 --fresh
+python "RawHebb+bio+0.13.0.0.py" --train --train-file train.jsonl --epochs 1 --fresh
 
 # 4. or just run the menu
-python "RawHebb+bio+0.12.0.0.py"
+python "RawHebb+bio+0.13.0.0.py"
 ```
 
 Requirements: Python 3.10+, PyTorch 2.x, `tokenizers`.
@@ -141,23 +144,22 @@ Full corpus (2 850 dialogues, one epoch, CPU), held-out 150 dialogues. The model
 the same last-128-token windows it trains on (18 900 scored assistant tokens); the n-gram baselines
 below use exactly the same windows and mask (see `research/_v122_bigram_ref.py`):
 
-| metric | **0.12.0.0** | 0.11.0.0 | bigram (unigram-prior, same window) | bigram add-1 | unigram add-1 | old 0.6.0.0* |
+| metric | **0.13.0.0** | 0.12.0.0 | bigram (unigram-prior, same window) | bigram add-1 | unigram add-1 | old 0.6.0.0* |
 |---|---|---|---|---|---|---|
-| cross-entropy | **3.195** | 3.258 | 3.809 | 4.456 | 5.785 | 5.862 |
-| top-1 | **40.34 %** | 38.70 % | 31.32 % | 31.39 % | 4.83 % | 14.85 % |
-| top-5 | **63.52 %** | 63.02 % | 58.05 % | 58.07 % | 15.85 % | 27.17 % |
+| cross-entropy | **3.177** | 3.195 | 3.809 | 4.456 | 5.785 | 5.862 |
+| top-1 | **40.43 %** | 40.34 % | 31.32 % | 31.39 % | 4.83 % | 14.85 % |
+| top-5 | **63.69 %** | 63.52 % | 58.05 % | 58.07 % | 15.85 % | 27.17 % |
 
 \* 0.6.0.0 was measured on the old two-step-ahead task; it is shown for lineage only and is not
 directly comparable.
 
 The model is **better than a window-matched bigram on CE, top-1 and top-5**, with no
-back-propagation anywhere. 0.12.0.0 scales the hidden width from 128 to 416 and improves over
-0.11.0.0 by 0.063 CE, 1.64 points top-1 and 0.50 points top-5. The full-corpus capacity scan is
+back-propagation anywhere. 0.13.0.0 adds a 4-gram count expert (4k hashed buckets, tri-prior
+backoff) to the hidden-416 base. It improves over 0.12.0.0 by 0.0174 CE, 0.09 points top-1 and
+0.17 points top-5. The 8k-bucket variant keeps the best top-5 (63.84 %) but gives up 0.39 top-1 and
+0.0091 CE, so it is kept as a top-5 branch. **Seed robustness:** three hidden-416+4k seeds give CE 3.1772 / 3.1824 / 3.1783 (mean 3.1793), top-1 40.43 / 40.49 / 40.31 % (mean 40.41 %) and top-5 63.69 / 63.54 / 63.75 % (mean 63.66 %). The capacity scan remains
 3.2248 / 3.2246 / 3.2182 / 3.2076 / 3.2061 / 3.2006 / 3.1946 for hidden 192 / 224 / 256 / 288 / 352 /
-384 / 416. Top-1 peaks at hidden 352 (40.61 %), while 416 wins CE and top-5; the spread is within
-0.01 CE and 0.3 % top-1, so both branches are kept. Three hidden-416 seeds give CE 3.1946 / 3.2002 /
-3.1966 (mean 3.1971), top-1 40.34 / 40.49 / 40.21 %, top-5 63.52 / 63.29 / 63.61 %. Fixed training
-order still removes most of the seed variance (0.11 three seeds: 3.2581 / 3.2608 / 3.2552).
+384 / 416, and hidden352 still has the best top-1 of the no-4-gram family (40.61 %).
 
 **The decisive finding of this release: a target-shift bug that had been present since 0.1.0.0.**
 `chat_to_ids` already returns `labels[t] = token t+1` (the standard next-token target), but the
@@ -188,7 +190,7 @@ prefix-cache expert (its fitted weight was exactly zero), and 192/256-token wind
 scaled the hidden width from 128 to 416 and rejected reverse/length order, pair prior 2/4, tri prior
 2/3/5/8, 8k/32k/128k buckets, seq96/160/192/256, layers 3/5, hidden 64, newton2, bias,
 noise/spike/coupling switches, mix rounds 1/4, and all-pair scope. The v124 round rejected
-last-successor copy, prompt copy, 4-gram backoff (fitted weight 1.6e-5 ≈ 0), and a top-1 mixture objective
+last-successor copy, prompt copy, 4-gram backoff at 64k buckets (weight 1.6e-5 ≈ 0); 4k/8k buckets now work and are the 0.13.0.0 / top-5 branch, and a top-1 mixture objective
 (CE collapse).
 
 Also recorded: GPU acceleration does **not** help this kernel (kernel-launch bound). Measured on the
@@ -218,7 +220,8 @@ RawHebb+bio+<a>.<b>.<c>.<d>.py   (four-segment version, no `v` prefix)
 | 0.7.x | token-identity memory experiments; all kept as negative results, none released. |
 | 0.10.0.0 | fixes the target-shift bug; adds exact token-pair and hashed-prefix Hebbian memories; three-expert likelihood mixing; SEQ_LEN=128. Full corpus: CE 3.269, top-1 38.62 %, top-5 62.99 %. |
 | 0.11.0.0 | fixes the training order (no shuffle). Three full-corpus seeds: CE 3.2581 / 3.2608 / 3.2552, top-1 38.70 / 38.63 / 38.86 %, top-5 63.02 / 63.04 / 63.08 %. Corrected window-matched bigram: CE 3.809, top-1 31.32 %. |
-| **0.12.0.0** | **scales the hidden width 128 → 416** (fixed order, tri prior 4, 64k tri buckets). Full corpus: CE **3.1946**, top-1 **40.34 %**, top-5 **63.52 %**. Capacity scan 192–416; top-1 peaks at hidden 352 (40.61 %). New cache / 4-gram / top-1-mixture branches all rejected. |
+| 0.12.0.0 | scales the hidden width 128 → 416 (fixed order, tri prior 4, 64k tri buckets). Full corpus: CE 3.1946, top-1 40.34 %, top-5 63.52 %. Capacity scan 192–416; top-1 peaks at hidden 352 (40.61 %). New cache branches and a 64k-bucket 4-gram were rejected. |
+| **0.13.0.0** | **adds a 4-gram count expert with 4k hashed buckets** and tri-prior backoff. Full corpus: CE **3.1772**, top-1 **40.43 %**, top-5 **63.69 %**, beating 0.12.0.0 on all three. The 8k variant keeps the best top-5 (63.84 %). The 64k 4-gram was a hash-sparsity failure, not a dead idea. |
 
 ---
 
@@ -250,18 +253,17 @@ AGPL-3.0. See [`LICENSE`](LICENSE).
 **问答 mask 与防泄露**：user 段与格式 token 的 label 置 `-100`，只统计 assistant；
 训练/验证按**对话**切分，并做精确重复、跨集 sha1、user 前缀、8-gram 四项泄露检查（结果见 README）。
 
-**必须说清楚的现状（0.12.0.0）**：全量 2850 条 / 1 epoch 后，验证 **CE 3.195 / top-1 40.34% /
-top-5 63.52%**（hidden416；hidden352 的 top-1 为 40.61%，CE 3.2061）。同窗口、同 mask 的 bigram
+**必须说清楚的现状（0.13.0.0）**：全量 2850 条 / 1 epoch 后，验证 **CE 3.1772 / top-1 40.43% /
+top-5 63.69%**（hidden416 + 4-gram 4k；0.12 是 3.1946/40.34/63.52）。同窗口、同 mask 的 bigram
 （unigram 先验）是 CE 3.809 / top-1 31.32% / top-5 58.05%，add-1 bigram 是 CE 4.456 / top-1
-31.39%；**三个指标都超过 bigram**。这是修掉一个从 0.1.0.0 起就存在的
-**目标位移 off-by-one** 之后的结果：旧代码用 `logits[t]` 对 `labels[t+1]`，实际训练的是「隔一个
-token」的任务；同一份 0.6.0.0 权重在标准对齐下只有 top-1 2.68%。所以 **0.10.0.0 之前的全部数字
-都不能直接和现在比**。
+31.39%；**三个指标都超过 bigram**。旧版本还修掉了从 0.1.0.0 起就存在的 **目标位移 off-by-one**：
+旧代码用 `logits[t]` 对 `labels[t+1]`，实际训练的是「隔一个 token」的任务；同一份 0.6.0.0 权重
+在标准对齐下只有 top-1 2.68%，所以 **0.10.0.0 之前的数字不能直接比**。
 
-0.12.0.0 相对 0.11.0.0（3.2581）CE 降 0.063、top-1 +1.64、top-5 +0.50。容量扫描 hidden
-192/224/256/288/352/384/416 = 3.2248/3.2246/3.2182/3.2076/3.2061/3.2006/3.1946；352 的
-top-1 最高（40.61%），416 的 CE/top-5 最好。v123 还测过 order/prior/bucket/seq/layers，v124
-测过 lastcopy/promptcopy/4-gram/top1mix，均未超过；见 `docs/FINDINGS.md`。
+0.13.0.0 在 hidden416 上加 4-gram 计数专家（4k 桶，tri 先验回退），比 0.12 三项全好：
+CE -0.0174、top-1 +0.09、top-5 +0.17。8k 桶变体的 top-5 更高（63.84%），但 CE/top-1 略低，
+作为 top-5 分支保留。4-gram 64k 桶曾因太稀疏而权重≈0；4k/8k 桶才让它生效。
+**种子：** 三种子 CE 3.1772/3.1824/3.1783（均值 3.1793），top-1 40.43/40.49/40.31%（均值 40.41%），top-5 63.69/63.54/63.75%（均值 63.66%）。见 `docs/FINDINGS.md`。
 
 现在的记忆是三支并联：慢状态原型、精确 token 对计数（V×V，Hebbian 累加）、前缀哈希计数；
 三支权重由似然坐标下降在单纯形上自定，没有学习率、没有手填混合系数。负结果也保留在仓库：

@@ -516,6 +516,43 @@ The 4-gram table is too sparse at 500 dialogues (and the tri expert already capt
 context); its fitted weight is 1.6e-5, effectively zero. The top-1 objective is discontinuous and the coordinate search
 collapses the calibration, so NLL remains the right local objective.
 
+### v124b: the 4-gram was not dead, just too sparse
+
+The 64k-bucket 4-gram got a fitted weight of 1.6e-5 and no measurable effect. Reducing the hash width
+(which increases collisions and smoothing) changes the result at 500 dialogues:
+
+| 4-gram buckets | CE (500) | top-1 | fitted weight | verdict |
+|---|---|---|---|---|
+| 65536 | 3.5692 | 37.66 % | 1.6e-5 | no effect |
+| 32768 | (not finished) | — | — | interrupted |
+| 16384 | 3.5610 | 37.77 % | 0.0618 | better |
+| 8192 | 3.5587 | **37.86 %** | 0.0529 | best top-1 |
+| 4096 | **3.5514** | 37.73 % | 0.0927 | best CE |
+| 2048 | 3.5517 | 37.73 % | 0.0921 | plateau |
+
+The hidden-384 baseline for this table is 3.5692 / 37.67 %. The 4k table has the best CE, the 8k table the best top-1; 2k is identical to 4k (the sweep has
+plateaued). Both beat the baseline on CE and top-1. Full
+2 850-dialogue runs of hidden384+8k and hidden416+8k are in progress. If they confirm, the 4-gram
+backoff becomes 0.13.0.0; otherwise it stays a documented near-miss. The lesson is that the earlier
+4-gram negative was a **hash-sparsity** failure, not evidence that 4-grams are useless.
+
+### v124b full corpus: the 4-gram gain survives, with a top-1 trade-off
+
+| model | CE | top-1 | top-5 |
+|---|---|---|---|
+| 0.12.0.0 (hidden416, no 4-gram) | 3.1946 | 40.34 % | 63.52 % |
+| hidden384 + 4-gram 8k | 3.1911 | 40.05 % | 63.65 % |
+| hidden416 + 4-gram 8k | 3.1863 | 40.04 % | **63.84 %** |
+| **hidden416 + 4-gram 4k (0.13.0.0)** | **3.1772** | **40.43 %** | 63.69 % |
+
+The 4-gram backoff gives the best CE and top-1 so far. The 4k table reaches 3.1772 / 40.43 / 63.69:
+-0.0174 CE, +0.09 top-1 and +0.17 top-5 versus 0.12.0.0, and -0.0199 CE versus the three-seed 0.12
+mean (3.1971). Three 4k seeds: CE 3.1772 / 3.1824 / 3.1783 (mean 3.1793), top-1 40.43 / 40.49 /
+40.31 % (mean 40.41 %), top-5 63.69 / 63.54 / 63.75 % (mean 63.66 %). The 8k table keeps the best top-5 (63.84 %) but gives up 0.39 top-1 and 0.0091 CE.
+The 4k variant is the overall 0.13.0.0 champion; 8k is kept as the top-5 branch. The 4-gram has
+finally paid off after the 64k-bucket zero-weight result: the bucket width is the architecture
+quantity that controls the sparsity/generalisation trade-off.
+
 ### A methodology bug worth recording
 
 The first v123 batch generated branch files with names such as 

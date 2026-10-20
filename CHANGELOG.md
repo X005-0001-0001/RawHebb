@@ -3,7 +3,19 @@
 All notable changes to RawHebb. Versions follow `RawHebb+bio+<a>.<b>.<c>.<d>.py` (four segments, no `v` prefix);
 every change is a new file, older versions are kept verbatim.
 
-## [0.12.0.0] - current
+## [0.13.0.0] - current
+* **4-gram count expert, 4k hashed buckets, tri-prior backoff.** On top of the hidden-416 base:
+  full corpus CE **3.1772**, top-1 **40.43 %**, top-5 **63.69 %**, versus 3.1946 / 40.34 % / 63.52 %
+  for 0.12.0.0. It beats 0.12 on all three metrics. The 8k-bucket variant keeps the best top-5
+  (63.84 %) but gives up 0.39 top-1 and 0.0091 CE.
+* **The 64k 4-gram was a hash-sparsity failure, not a dead idea.** The 64k table got a fitted weight
+  of 1.6e-5; 16k/8k/4k/2k buckets at 500 dialogues give 3.5610 / 3.5587 / 3.5514 / 3.5517, and the
+  full 4k run confirms. The bucket width is an architecture quantity, not a hand-set weight.
+* **Seeds:** CE 3.1772 / 3.1824 / 3.1783 (mean 3.1793), top-1 40.43 / 40.49 / 40.31 %, top-5 63.69 / 63.54 / 63.75 %.
+* Rejected and kept as branches: last-successor copy, prompt copy, top-1 mixture objective, and the
+  64k 4-gram. The v123 capacity scan and all earlier negative results are unchanged.
+
+## [0.12.0.0]
 * **Scaled the hidden width 128 -> 416** (SEQ_LEN=128, fixed file order, tri prior 4, 64k tri buckets).
   Full corpus: CE **3.1946**, top-1 **40.34 %**, top-5 **63.52 %** (seed 43), versus 3.2581 /
   38.70 % / 63.02 % for 0.11.0.0. Three seeds: CE 3.1946 / 3.2002 / 3.1966 (mean 3.1971), top-1
