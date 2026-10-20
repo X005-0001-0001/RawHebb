@@ -623,6 +623,28 @@ for 0.13. The trigram-plus-pair expert earns a 0.0095 weight but does not change
 0.01-point top-1 change, no CE/top-5 gain. The 0.13 mixture is already the right
 backoff chain; 0.13.0.0 is retained as the champion.
 
+### v133: the four-expert prior strength is a pseudo-count
+
+The 0.13 four expert reuses TRI_PRIOR_STRENGTH = 4; its table is a *bigram* table,
+so the pair expert's PAIR_PRIOR_STRENGTH = 1 (one pseudo-observation) is the more
+principled value. At 500 dialogues (baseline 3.5525 / 37.80 / 59.89):
+
+| four prior | CE | top-1 | top-5 |
+|---|---|---|---|
+| 1 | 3.5514 | 37.74 % | 59.93 % |
+| 2 | 3.5521 | 37.77 % | 59.88 % |
+
+The full 2850 run gives 3.1773 / **40.53** / 63.67, versus 3.1772 / 40.43 / 63.69 for
+0.13: CE +0.0001 and top-5 -0.02 are a wash, top-1 is +0.10. Prior 1 is therefore a
+**top-1 tradeoff branch**, not an all-three champion; 0.13.0.0 keeps the CE/top-5 crown.
+
+### v134: hidden352 + 4k does not recover the top-1 crown
+
+The 0.12 hidden352 branch has the best top-1 of the no-4-gram family (40.61 %, CE
+3.2061). Adding the 4k expert gives 3.1893 / 40.50 / 63.40: CE improves by 0.017,
+but top-1 falls to 40.50, so it does not beat the 0.12 hidden352 top-1 branch.
+The top-1 ranking remains 0.12 hidden352 40.61, fprior1 40.53, hidden352+4k 40.50.
+
 ### A methodology bug worth recording
 
 The first v123 batch generated branch files with names such as 
