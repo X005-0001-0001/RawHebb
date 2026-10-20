@@ -3,7 +3,23 @@
 All notable changes to RawHebb. Versions follow `RawHebb+bio+<a>.<b>.<c>.<d>.py` (four segments, no `v` prefix);
 every change is a new file, older versions are kept verbatim.
 
-## [0.10.0.0] — current
+## [0.11.0.0] — current
+* **Fixed the training order: `TRAIN_SHUFFLE = False`.** On the full corpus, three seeds give
+  CE **3.2581 / 3.2608 / 3.2552** and top-1 **38.70 / 38.63 / 38.86 %**, versus 3.2690 / 38.62 %
+  for 0.10.0.0. The biggest effect is robustness: shuffled seed44 was 3.3582 / 36.07 %, fixed-order
+  seed44 is 3.2608 / 38.63 %.
+* **Corrected the n-gram reference.** The v121 reference scripts paired `ids[:-1]` with
+  `labels[1:]`, the same target-shift bug fixed in 0.10.0.0. The corrected, window-matched
+  reference (`research/_v122_bigram_ref.py`) is: bigram + unigram prior CE 3.809 / top-1 31.32 % /
+  top-5 58.05 %; bigram add-1 CE 4.456; unigram add-1 CE 5.785. The model still beats bigram on all
+  three metrics.
+* Rejected in v122 and kept as branches: tri→pair backoff, count-adaptive per-position mixing,
+  linear probability-space mixing (much worse), a causal prefix-cache expert (fitted weight exactly
+  zero), and 192/256-token windows.
+* Measured GPU speed: on 50 dialogues, 6 s on CPU vs 47 s on an RTX 5080. The kernel is
+  launch-bound; CPU remains the target.
+
+## [0.10.0.0]
 * **Fixed a target-shift bug present since 0.1.0.0.** `chat_to_ids` already returns
   `labels[t] = token t+1`, but training/evaluation paired `logits[t]` with `labels[t+1]`, i.e. the
   model was solving a two-step-ahead task. Scoring the same 0.6.0.0 checkpoint under both alignments:

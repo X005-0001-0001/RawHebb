@@ -370,3 +370,69 @@ descent on the likelihood over the probability simplex. No learning rate, no han
 Newton steps, coupling, chunking). `_v121_gen*.py` generate one standalone file per variant; all are
 kept. Diagnostics: `_v121_align_check.py`, `_v121_pair_ref*.py`, `_v121_sweep.py`,
 `_v121_eval150.py`, `_v121_crosseval.py`.
+
+---
+
+## v122 (2026-10-20): training order, and a corrected bigram reference
+
+### Fixed training order wins, mainly by removing seed variance
+
+The 0.10.0.0 training loop shuffled the 2 850 dialogues with seed 43. Turning shuffle off
+(`TRAIN_SHUFFLE = False`, branch `trinoshuf+0.9.52.0`) gives:
+
+| seed | shuffled full CE / top-1 | fixed-order full CE / top-1 |
+|---|---|---|
+| 43 | 3.2690 / 38.62 % | **3.2581 / 38.70 %** |
+| 44 | 3.3582 / 36.07 % | **3.2608 / 38.63 %** |
+| 45 | — | **3.2552 / 38.86 %** |
+
+The mean gain over 0.10.0.0 is small (+0.011 CE), but the three fixed-order seeds agree to
+0.006 CE, while the shuffled seeds ranged over 0.089 CE. Fixed file order is therefore the better
+operating point, not a new mechanism.
+
+### The old bigram reference had the same target-shift bug
+
+`_v121_pair_ref*.py` paired `ids[:-1]` with `labels[1:]`. But `labels[t]` is already token `t+1`, so
+that reference was scoring a **two-step-ahead** bigram. The corrected script
+`research/_v122_bigram_ref.py` uses `ids[t]` vs `labels[t]` on the same last-128-token windows:
+
+| reference (same window/mask) | CE | top-1 | top-5 |
+|---|---|---|---|
+| unigram add-1 | 5.785 | 4.83 % | 15.85 % |
+| bigram add-1 | 4.456 | 31.39 % | 58.07 % |
+| bigram + unigram prior | **3.809** | **31.32 %** | **58.05 %** |
+| pair/unigram log-mixture (best w=0.71) | 3.684 | — | — |
+
+0.11.0.0 is **3.258 / 38.70 % / 63.02 %**, so it still beats the corrected bigram on all three
+metrics. The conclusion survives; the margin is smaller and now measured correctly.
+
+### v122 negatives
+
+| branch | change | CE (500) | top-1 (500) | verdict |
+|---|---|---|---|---|
+| `tribackoff` | tri smoothed with pair instead of unigram | 3.8466 | 35.10 % | worse |
+| `triadapt` | per-position weight `n/(n+1)` | 3.7377 | 36.08 % | neutral |
+| `trilin` | linear probability mixture instead of log-linear | 4.9340 | 26.75 % | much worse |
+| `trinoshufpref` | + causal prefix-cache expert | 3.6099 | 36.38 % | prefix weight = 0 |
+| `seq192tri` | window 192 | 3.7406 | 35.90 % | neutral/worse |
+| `seq256tri` | window 256 | 3.6874 | 35.74 % | CE better, top-1 worse |
+| `trinoshuf` | fixed order (baseline for the table) | **3.6099** | **36.38 %** | current |
+
+The prefix-cache expert was rejected by the likelihood fit: its weight was exactly 0.0, so it had
+no effect on the output. The linear mixture is a genuine failure: log-linear (geometric) pooling is
+much better for this model, probably because the base and count experts are over-confident in
+different regions.
+
+### GPU
+
+An RTX 5080 was available for this round. On the same 50-dialogue run, CPU took 6 s and GPU 47 s
+(after fixing two device-placement bugs in the count updates and evaluation). The kernel launches
+one tiny operation per timestep and per layer, so it is launch-bound; batching would help the GPU but
+breaks the online local update. CPU remains the target.
+
+### v122 artefacts
+
+`_v122_gen.py` (branch generator), `_v122_eval.py` (checkpoint evaluator),
+`_v122_bigram_ref.py` (corrected reference), and the branch files
+`RawHebb+trinoshuf+0.9.52.0.py`, `RawHebb+trinoshufseed44+0.9.64.0.py`,
+`RawHebb+trinoshufseed45+0.9.70.0.py`, plus the negative branches listed above.
