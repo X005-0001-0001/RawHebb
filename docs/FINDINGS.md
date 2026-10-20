@@ -436,3 +436,100 @@ breaks the online local update. CPU remains the target.
 `_v122_bigram_ref.py` (corrected reference), and the branch files
 `RawHebb+trinoshuf+0.9.52.0.py`, `RawHebb+trinoshufseed44+0.9.64.0.py`,
 `RawHebb+trinoshufseed45+0.9.70.0.py`, plus the negative branches listed above.
+
+
+## v123 (2026-10-20): capacity is the lever
+
+After 0.11.0.0, the question was whether the remaining gap is in the local rules or in capacity.
+v123 swept the hidden width, the tri prior, the hash width, the window, the layer count, and several
+neutral switches, first on 500 dialogues and then on the full corpus for the capacity candidates.
+The answer was unambiguous: **width is the lever**, and none of the new mechanisms tested so far
+beats a wider base.
+
+### 500-dialogue screen (fixed order, seq 128, pair + tri)
+
+| branch | change | CE | top-1 | verdict |
+|---|---|---|---|---|
+| 	rinoshuf | 0.11.0.0 baseline | **3.6099** | 36.38 % | baseline |
+| order reverse | reverse file order | 3.6350 | 36.35 % | worse |
+| order length_asc | sort by length, ascending | 3.6098 | 36.38 % | neutral |
+| order length_desc | sort by length, descending | 3.6489 | 35.27 % | worse |
+| pairprior2 | pair prior 2 | 3.6093 | 36.50 % | neutral |
+| pairprior4 | pair prior 4 | 3.6247 | 36.51 % | worse CE |
+| 	riprior2 | tri prior 2 | 3.6070 | 36.48 % | neutral |
+| 	riprior4 | tri prior 4 | 3.6050 | 36.52 % | best prior |
+| 	rinoshuf + TRIGRAM_BUCKETS=64k | 64k tri buckets | 3.5999 | 36.86 % | better |
+| 	rinoshuf + TRIGRAM_BUCKETS=32k | 32k | 3.6053 | 36.84 % | neutral |
+| 	rinoshuf + TRIGRAM_BUCKETS=8k | 8k | 3.6160 | 36.30 % | worse |
+| seq96 | window 96 | 3.6411 | 37.76 % | CE worse |
+| seq160 | window 160 | 3.6203 | 37.86 % | CE worse |
+| seq192 | window 192 | 3.6186 | 36.69 % | worse |
+| seq256 | window 256 | 3.6144 | 35.38 % | worse |
+| layers3 | 3 layers | 3.6240 | 36.21 % | worse |
+| layers5 | 5 layers | 3.6238 | 36.29 % | worse |
+| hidden64 | width 64 | 3.6391 | 36.37 % | worse |
+| hidden192 | width 192 | 3.5953 | 36.17 % | better CE |
+| 
+ewton2 | 2 Newton steps | 3.6102 | 36.38 % | neutral |
+| `bias` | output-head bias | 3.6107 | 36.38 % | neutral |
+| 	ri4buck64hidden192 | 192 wide + 64k + tri4 | **3.5830** | 36.81 % | capacity wins |
+| 	ri4buck64hidden256 | 256 wide + 64k + tri4 | 3.5873 | 37.36 % | capacity wins |
+| 	ri4buck64hidden288 | 288 wide + 64k + tri4 | 3.5709 | 37.37 % | capacity wins |
+| 	ri4buck64hidden352 | 352 wide + 64k + tri4 | 3.5686 | 37.58 % | capacity wins |
+| 	ri4buck64hidden384 | 384 wide + 64k + tri4 | 3.5692 | 37.67 % | capacity wins |
+
+seq64 reached 37.95 % top-1 but its CE was 3.6279; its evaluation token set is different, so it is
+not directly comparable to the seq-128 rows. The 
+oise/spike/couple switches were exactly neutral
+(3.6099), confirming that the recurrent state is not contributing to the read-out at this scale; the
+count experts and the wide base carry the result.
+
+### Full corpus (2 850 dialogues, one epoch, 1 890 scored tokens per dialogue)
+
+| hidden | CE | top-1 | top-5 | notes |
+|---|---|---|---|---|
+| 128 (0.11.0.0) | 3.2581 | 38.70 % | 63.02 % | baseline |
+| 192 | 3.2248 | 40.13 % | 63.10 % | seed44 3.2278 / 40.18; seed45 3.2221 / 40.11 |
+| 224 | 3.2246 | 40.21 % | 63.00 % | |
+| 256 | 3.2182 | 40.54 % | 63.17 % | |
+| 288 | 3.2076 | 40.20 % | 63.34 % | |
+| 352 | 3.2061 | **40.61 %** | 63.26 % | best top-1 |
+| 384 | 3.2006 | 40.53 % | 63.33 % | seed44 3.2073 / 40.59 |
+| **416** | **3.1946** | 40.34 % | **63.52 %** | **0.12.0.0**; seeds 44/45 3.2002 / 3.1966 |
+
+The CE gain from 128 to 416 is 0.063, the top-1 gain 1.64 points, and the top-5 gain 0.50 points.
+Three hidden-416 seeds give CE 3.1946 / 3.2002 / 3.1966 (mean 3.1971), top-1 40.34 / 40.49 / 40.21 %,
+top-5 63.52 / 63.29 / 63.61 %. The top-1 peak at 352 and the CE peak at 416 are within 0.01 CE /
+0.3 % top-1, so both are kept as branches instead of pretending one is strictly better.
+
+### v124: new local mechanisms, all rejected
+
+| branch | mechanism | CE (500) | top-1 | verdict |
+|---|---|---|---|---|
+| lastcopy | causal last-successor cache expert | 3.5743 | 37.41 % | worse than 3.5692 |
+| promptcopy | prompt-token distribution expert | 3.5845 | 37.45 % | worse |
+| lastpromptcopy | both caches (6 weight slots) | 3.5846 | 37.43 % | worse |
+| `fourbackoff` | hashed 4-gram, tri-prior backoff | 3.5692 | 37.66 % | fitted weight 1.6e-5 (≈0) |
+| `top1mix` | fit mixture on top-1 instead of NLL | 3.8746 | 37.53 % | CE collapse |
+
+The 4-gram table is too sparse at 500 dialogues (and the tri expert already captures the useful
+context); its fitted weight is 1.6e-5, effectively zero. The top-1 objective is discontinuous and the coordinate search
+collapses the calibration, so NLL remains the right local objective.
+
+### A methodology bug worth recording
+
+The first v123 batch generated branch files with names such as 
+ewton2+0.9.89.0.py, but the runner
+selected the **first** glob match RawHebb+newton2+0.9.*.py, which was the old v121 file
+RawHebb+newton2+0.9.9.0.py. Several early numbers were therefore old branches, not the new
+switches. The fix was to run exact full file names and to rerun the affected branches with _v123b_
+output prefixes. Exact filenames are now the rule for every branch run; the old files are kept
+untouched.
+
+### v123 / v124 artefacts
+
+_v123_gen.py, _v123b_gen.py ... _v123e_gen.py, _v124_gen.py, _v123_release416.py,
+_v123_release.py; branches RawHebb+tri4buck64hidden416+0.9.137.0.py,
+RawHebb+tri4buck64hidden384+0.9.128.0.py, RawHebb+tri4buck64hidden352+0.9.127.0.py, and the
+negative v124 files. Full-run logs are kept locally as _v123_full_*.out and checkpoint files as
+_v123_full_*.pt.

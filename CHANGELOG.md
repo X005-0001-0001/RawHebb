@@ -3,7 +3,20 @@
 All notable changes to RawHebb. Versions follow `RawHebb+bio+<a>.<b>.<c>.<d>.py` (four segments, no `v` prefix);
 every change is a new file, older versions are kept verbatim.
 
-## [0.11.0.0] — current
+## [0.12.0.0] - current
+* **Scaled the hidden width 128 -> 416** (SEQ_LEN=128, fixed file order, tri prior 4, 64k tri buckets).
+  Full corpus: CE **3.1946**, top-1 **40.34 %**, top-5 **63.52 %** (seed 43), versus 3.2581 /
+  38.70 % / 63.02 % for 0.11.0.0. Three seeds: CE 3.1946 / 3.2002 / 3.1966 (mean 3.1971), top-1
+  40.34 / 40.49 / 40.21 %, top-5 63.52 / 63.29 / 63.61 %.
+* **Capacity scan (full corpus)**: hidden 192 3.2248 / 40.13; 224 3.2246 / 40.21; 256 3.2182 / 40.54;
+  288 3.2076 / 40.20; 352 3.2061 / 40.61; 384 3.2006 / 40.53; 416 3.1946 / 40.34. The 352 branch has
+  the best top-1; 416 has the best CE / top-5; the spread is within 0.01 CE and 0.3 % top-1.
+* **Rejected in v123 / v124**: reverse and length order, pair prior 2/4, tri prior 2/3/5/8, 8k/32k/128k
+  buckets, seq96/160/192/256, layers 3/5, hidden 64, newton2, bias, noise/spike/coupling switches,
+  mix rounds 1/4, all-pair scope, last-successor copy, prompt copy, 4-gram backoff (fitted weight 1.6e-5 ≈ 0),
+  and a top-1 mixture objective (CE collapse). All are kept as branches.
+
+## [0.11.0.0]
 * **Fixed the training order: `TRAIN_SHUFFLE = False`.** On the full corpus, three seeds give
   CE **3.2581 / 3.2608 / 3.2552** and top-1 **38.70 / 38.63 / 38.86 %**, versus 3.2690 / 38.62 %
   for 0.10.0.0. The biggest effect is robustness: shuffled seed44 was 3.3582 / 36.07 %, fixed-order
