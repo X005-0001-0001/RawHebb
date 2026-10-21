@@ -3,7 +3,20 @@
 All notable changes to RawHebb. Versions follow `RawHebb+bio+<a>.<b>.<c>.<d>.py` (four segments, no `v` prefix);
 every change is a new file, older versions are kept verbatim.
 
-## [0.14.0.0] - current
+## [0.15.0.0] - current
+* **Row-normalised past-context bag prior.** Each past context's pair row is normalised before the
+  causal cumsum, so rare and frequent contexts each vote once; the four expert's pseudo-count is the
+  Jeffreys prior 0.5. It improves 0.14.0.0 by 0.0031 CE and 0.02 points top-5 at equal mean top-1.
+  Full corpus seed43: CE **3.1705**, top-1 **40.38 %**, top-5 **63.78 %** (0.14: 3.1740 / 40.43 % /
+  63.77 %).
+* **Seeds:** CE 3.1705 / 3.1749 / 3.1717 (mean **3.1724**), top-1 40.38 / 40.59 / 40.38 % (mean
+  **40.45 %**), top-5 63.78 / 63.71 / 63.86 % (mean **63.78 %**); the 0.14 means are 3.1755 /
+  40.45 % / 63.76 %.
+* Rejected in v137 and kept as branches: the raw fourmix geometric pool (full 3.1747 / 40.41 /
+  63.76), last-half-window bag, leaky bag, hidden448 + bag, separate raw/normalised bag experts,
+  sqrt-normalised rows, and separate tri-prior experts. Full details in `docs/FINDINGS.md`.
+
+## [0.14.0.0]
 * **Bag-of-past-tokens prior for the four expert.** The exact pair table is accumulated causally
   over the window and used as the prior for the last-token count expert, replacing the trigram
   prior; no new counts, tables or constants. Full corpus seed43: CE **3.1740**, top-1 **40.43 %**,

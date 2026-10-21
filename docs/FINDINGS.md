@@ -697,6 +697,51 @@ Batching would require rewriting those local updates as batch tensor rules, whic
 online semantics, so it is a separate research branch, not a free speedup. 0.14.0.0 stays on CPU;
 the batch branch is kept as a negative result.
 
+### v137: normalised bag prior — CE/top-5 branch, top-1 regresses
+
+The v135 bag prior sums raw pair rows, so frequent contexts dominate.  Normalising each row
+before the causal cumsum (v141 `bagnorm`) gives every past context one vote.  At 500 dialogues
+(same windows, val-50) against the 0.14 baseline 3.6092 / 37.46 % / 59.06 %:
+
+| branch | CE | top-1 | top-5 |
+|---|---|---|---|
+| 0.14 baseline (raw bag) | 3.6092 | 37.46 % | 59.06 % |
+| bagnorm (row-normalised bag) | **3.6019** | 37.38 % | 59.17 % |
+| bagnorm, four prior 0.5 | **3.6005** | 37.40 % | **59.27 %** |
+| bagnorm, four prior 0.25 | 3.6006 | 37.40 % | 59.22 % |
+| bagnorm, four prior 2.0 | 3.6043 | 37.43 % | 59.10 % |
+| mixbagnorm (geometric tri/bag, normalised bag) | 3.6059 | 37.37 % | 59.22 % |
+| bothnorm4 (raw tri-4 expert + normalised bag expert) | 3.6020 | 37.37 % | 59.17 % |
+| bagdual (raw bag + normalised bag experts) | 3.6023 | 37.32 % | 59.25 % |
+| bagsqrt (sqrt-normalised rows) | 3.6057 | 37.35 % | 59.19 % |
+| baglast (last-half-window bag) | 3.6098 | 37.44 % | 59.08 % |
+| bagleak (deep-layer leaky bag) | 3.6091 | 37.40 % | 59.08 % |
+| hidden448 + raw bag | 3.6126 | 37.38 % | 59.13 % |
+| fourboth (bag + tri-1 experts) | 3.6093 | 37.37 % | 59.08 % |
+| fourboth4 (bag + tri-4 experts) | 3.6098 | 37.33 % | 59.11 % |
+
+Full corpus, seed 43:
+
+| model | CE | top-1 | top-5 |
+|---|---|---|---|
+| 0.14 fourbag | 3.1740 | 40.43 % | 63.77 % |
+| fourmix full | 3.1747 | 40.41 % | 63.76 % |
+| bagnorm | **3.1706** | 40.35 % | **63.84 %** |
+| bagnorm, four prior 0.5 | **3.1705** | 40.38 % | 63.78 % |
+
+Bagnorm seeds (normalised rows, prior 1): 3.1706 / 3.1748 / 3.1719, top-1 40.35 / 40.49 /
+40.26 %, top-5 63.84 / 63.73 / 63.83 %; means **3.1724 / 40.37 % / 63.80 %**.  The 0.14 means
+are 3.1755 / 40.45 % / 63.76 %, so bagnorm improves CE by 0.0031 and top-5 by 0.04 but loses
+0.08 top-1.  It is therefore a **CE/top-5 branch** by itself; adding the Jeffreys 0.5 four prior
+turns its mean into an all-three improvement, so that variant is promoted to 0.15.0.0.  The four prior 0.5 gives the best CE at both 500 and full seed 43.  Its three full seeds are
+3.1705 / 3.1749 / 3.1717 (mean **3.1724**), top-1 40.38 / 40.59 / 40.38 % (mean **40.45 %**) and
+top-5 63.78 / 63.71 / 63.86 % (mean **63.78 %**); the 0.14 means are 3.1755 / 40.45 % / 63.76 %,
+so CE and top-5 improve with top-1 level.  This branch is promoted to **0.15.0.0**.
+
+Negative v137 branches: fourmix full (all three slightly worse than 0.14), last-half bag,
+leaky bag, hidden448, and the separate tri-prior experts.  The normalised-row gain is real but
+concentrated in CE/top-5.
+
 ### A methodology bug worth recording
 
 The first v123 batch generated branch files with names such as 
