@@ -675,6 +675,28 @@ A geometric pool of the trigram and bag priors (sqrt(tri * bag), renormalised) g
 CE -0.0007 and top-5 +0.15, top-1 -0.02. It is a candidate CE branch but not yet run
 full.
 
+### v136: GPU and batch do not speed up the online kernel
+
+The earlier 50-dialogue GPU comparison was contaminated: two full CPU seed runs were active,
+so the GPU job was starving for Python/CPU time. Re-measured on an idle machine, 500 dialogues,
+one epoch, same fourbag code:
+
+| device | batch | time | train CE | val-50 CE / top-1 / top-5 |
+|---|---|---|---|---|
+| CPU | 1 | 232 s | 3.9879 | 3.6092 / 37.46 % / 59.06 % |
+| RTX 5080 | 1 | 233 s | 3.9880 | 3.6092 / 37.43 % / 59.10 % |
+| RTX 5080 | 8 | 63.5 s for 100 (0.635 s/d) | 4.8684 | — |
+
+GPU B=1 reproduces the CPU numbers (train CE differs by 0.0001) but is **not faster**. A batch
+forward plus per-dialogue online updates (`RawHebb+batch+bag+0.9.192.0.py`) is **slower**:
+0.635 s/dialogue at batch 8 versus 0.466 s/dialogue at batch 1 on the same GPU. CPU batch 2 was
+also slower (16 s vs 13 s for 20 dialogues). The reason is structural: the forward pass is only
+about one third of the step; the rest is the serial per-dialogue write of `W_m` columns, the
+count tables and the Newton output-head update, and padding to the longest dialogue adds work.
+Batching would require rewriting those local updates as batch tensor rules, which changes the
+online semantics, so it is a separate research branch, not a free speedup. 0.14.0.0 stays on CPU;
+the batch branch is kept as a negative result.
+
 ### A methodology bug worth recording
 
 The first v123 batch generated branch files with names such as 

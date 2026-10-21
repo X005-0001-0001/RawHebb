@@ -204,9 +204,11 @@ noise/spike/coupling switches, mix rounds 1/4, and all-pair scope. The v124 roun
 last-successor copy, prompt copy, 4-gram backoff at 64k buckets (weight 1.6e-5 ≈ 0); 4k/8k buckets now work and are the 0.13.0.0 / top-5 branch, and a top-1 mixture objective
 (CE collapse).
 
-Also recorded: GPU acceleration does **not** help this kernel (kernel-launch bound). Measured on the
-same 50-dialogue run: 6 s on CPU vs 47 s on an RTX 5080; batching would make the GPU faster but
-destroys the online local rules.
+Also recorded: GPU acceleration does **not** help this kernel. On an idle machine, 500 dialogues
+take 232 s on CPU and 233 s on an RTX 5080 (training CE 3.9879 vs 3.9880). Batching the forward
+pass alone is slower (0.635 s/dialogue at batch 8 vs 0.466 at batch 1) because the serial
+per-dialogue `W_m`/count/Newton updates dominate; batching those would change the online local
+rules. See `docs/FINDINGS.md`, v136.
 
 See [`docs/FINDINGS.md`](docs/FINDINGS.md) for the full chronology, including everything that failed.
 
@@ -290,6 +292,7 @@ bag 先验。分数不变，真 4-gram 明显更差（FINDINGS v129）。
 三支权重由似然坐标下降在单纯形上自定，没有学习率、没有手填混合系数。负结果也保留在仓库：
 4/5-gram 更稀疏更差、KN 折扣 CE 略好但 top-1 掉、2 epoch 过拟合、全内容切窗训练太慢未放大；
 v123/v124 又排除了 order/prior/bucket/seq/layers、lastcopy/promptcopy/4-gram/top1mix。
-GPU 对这套内核**没有收益**（核启动受限）：最新 50 条对照，CPU 约 69 秒、RTX 5080 78 秒；
-批量化会破坏在线局部规则。
+GPU 对这套内核**没有收益**：空闲机 500 条对照，CPU 232 秒、RTX 5080 233 秒（训练 CE
+3.9879/3.9880）；只批量化 forward 反而更慢（batch=8 为 0.635 秒/条，B=1 为 0.466 秒/条），
+因为逐对话的 `W_m`/计数/Newton 更新是串行的；要批量化就得改写在线上规则（FINDINGS v136）。
 完整实验史（含全部失败项）见 `docs/FINDINGS.md`。
