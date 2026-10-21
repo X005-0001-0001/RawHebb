@@ -3,7 +3,21 @@
 All notable changes to RawHebb. Versions follow `RawHebb+bio+<a>.<b>.<c>.<d>.py` (four segments, no `v` prefix);
 every change is a new file, older versions are kept verbatim.
 
-## [0.16.0.0] - current
+## [0.17.0.0] - current
+* **1M trigram count buckets.** On top of 0.16, the trigram table is widened from 256k to **1M**
+  buckets (a pure count-resolution change; hidden 432, trigram prior 2 and the row-normalised bag
+  prior are unchanged). Full corpus seed43: CE **3.1411**, top-1 **41.59 %**, top-5 **63.86 %**
+  (0.16: 3.1496 / 41.35 % / 63.84 %).
+* **Seeds:** CE 3.1411 / 3.1458 / 3.1433 (mean **3.1434**), top-1 41.59 / 41.49 / 41.36 % (mean
+  **41.48 %**), top-5 63.86 / 63.78 / 63.74 % (mean **63.79 %**); the 0.16 means are 3.1516 /
+  41.20 % / 63.80 %, so CE and top-1 improve with top-5 level.
+* The bucket axis is still unsaturated (full CE 3.1584 at 128k, 3.1496 at 256k, 3.1411 at 1M), but a
+  2M table is about 23 GB and does not fit this machine's RAM; 1M is the practical ceiling.
+* Note: the 1M checkpoint is a 12.4 GB table, so `_v122_eval.py` cannot load it for a second-pass
+  evaluation on a 47 GB / 24 GB-free machine. The reported numbers are the held-out evaluation
+  produced inside each training run; the release file is code-identical to the branch.
+
+## [0.16.0.0]
 * **Wider trigram count table, lower trigram prior, slightly wider hidden layer.** On top of the
   0.15 row-normalised bag prior, the pure count knobs move: trigram buckets 64k -> **256k**, trigram
   prior strength 4 -> **2**, hidden 416 -> **432**. Full corpus seed43: CE **3.1496**, top-1

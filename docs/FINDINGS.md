@@ -788,3 +788,27 @@ Seeds 44 and 45 were prepared as 0.9.249.0 / 0.9.250.0.
 exactly (row0.5: GPU 3.6005/37.37/59.24 vs CPU 3.6007/37.37/59.24; alpha0.75: 3.6032/37.43/59.11 vs
 3.6032/37.43/59.08), but take about five times longer (3003 s vs 588 s for 500 dialogues) under
 contention, so the online kernel remains CPU-only.
+
+### v139 - 1M trigram buckets and the memory ceiling (0.17.0.0)
+
+The v138 scan showed the trigram bucket axis still improving.  Extending it further on the same
+500-dialogue screen: 256k 3.5902, 512k 3.5888, 1M 3.5863.  The gains shrink (0.007 then 0.0014 then
+0.0025) but remain positive, and the 1M run is also faster when the machine is quiet (154 s for 500
+dialogues vs 600 s under load).
+
+Full corpus seed43 of the 1M triple (1M buckets, hidden 432, trigram prior 2, row-normalised bag,
+Jeffreys 0.5): **3.1411 / 41.59 / 63.86**, versus 0.16's 3.1496 / 41.35 / 63.84.  Three seeds:
+3.1411 / 3.1458 / 3.1433 (mean **3.1434**), top-1 41.59 / 41.49 / 41.36 % (mean **41.48 %**),
+top-5 63.86 / 63.78 / 63.74 % (mean **63.79 %**).  The 0.16 means are 3.1516 / 41.20 % / 63.80 %,
+so CE and top-1 improve with top-5 level.  This is **0.17.0.0**.
+
+A 2M-bucket table would be about 23 GB (1M is 11.55 GB), which exceeds the free RAM of this
+machine and makes both training and the second-pass evaluation impractical.  The 1M checkpoint is
+12.4 GB; `_v122_eval.py` needs a second copy of the table and crashes at 24 GB free, so the reported
+scores are the in-training held-out evaluations (same `evaluate` function) and the release file is
+code-identical to the branch.  The bucket axis is therefore at its practical ceiling, not saturated.
+
+Other v139 notes: a separate raw-bag expert, hidden 400/428/436/464, 32k buckets, 5 layers, 2
+epochs and seq 192 all failed earlier.  Disk was briefly full (D: 0.2 GB) during the first 1M full
+run, which broke `torch.save` after training; 93.4 GB of old checkpoints were deleted and the run
+was repeated.

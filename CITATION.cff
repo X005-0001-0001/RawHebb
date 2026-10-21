@@ -15,8 +15,8 @@ abstract: >-
   a recurrent-state associative memory, exact token-pair and hashed-prefix Hebbian
   count memories, and per-layer readout weights. The repository ships a single-file
   application plus the full research lineage and its diagnostics. On a held-out
-  150-dialogue split (full corpus, one epoch) the current release reaches CE 3.1496,
-  top-1 41.35% and top-5 63.84% (three-seed mean 3.1516 / 41.20% / 63.80%), beating a
+  150-dialogue split (full corpus, one epoch) the current release reaches CE 3.1411,
+  top-1 41.59% and top-5 63.86% (three-seed mean 3.1434 / 41.48% / 63.79%), beating a
   window-matched bigram baseline (CE 3.809, top-1 31.32%) on all three metrics. Negative results, the target-shift bug fixed in
   0.10.0.0, and the corrected n-gram reference are documented explicitly.
 keywords:
@@ -27,4 +27,4 @@ keywords:
   - associative memory
   - language modelling
 license: AGPL-3.0
-version: 0.16.0.0
+version: 0.17.0.0

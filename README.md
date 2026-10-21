@@ -5,7 +5,7 @@ Purely forward dynamics — leaky membrane integrators, threshold spikes, and lo
 plasticity. No optimiser, no loss backward pass, no global gradient, no attention, no hand-tuned
 magic constants.
 
-> Branch `bio` · current release **0.16.0.0** · license **AGPL-3.0**
+> Branch `bio` · current release **0.17.0.0** · license **AGPL-3.0**
 
 中文速览见 [中文说明](#中文说明)。
 
@@ -58,7 +58,8 @@ RawHebb+bio+0.12.0.0.py     single-file application (kept for history)
 RawHebb+bio+0.13.0.0.py     single-file application (kept for history)
 RawHebb+bio+0.14.0.0.py     single-file application (kept for history)
 RawHebb+bio+0.15.0.0.py     single-file application (kept for history)
-RawHebb+bio+0.16.0.0.py     single-file application, current
+RawHebb+bio+0.16.0.0.py     single-file application (kept for history)
+RawHebb+bio+0.17.0.0.py     single-file application, current
 RawHebb+seq128tri+0.9.33.0.py  the exact v121 experimental branch that became 0.10.0.0
 RawHebb+trinoshuf+0.9.52.0.py  the exact v122 experimental branch that became 0.11.0.0
 RawHebb+tri4buck64hidden416+0.9.137.0.py  the exact v123 branch that became 0.12.0.0
@@ -66,6 +67,7 @@ RawHebb+tri4buck64hidden416four4k+0.9.164.0.py  the exact v124b branch that beca
 RawHebb+tri4buck64hidden416four4kfourbagprior+0.9.186.0.py  the exact v135 branch that became 0.14.0.0
 RawHebb+tri4buck64hidden416four4kbagnormprior05+0.9.206.0.py  the exact v137 branch that became 0.15.0.0
 RawHebb+tri256kbuck64hidden432four4kbagnormprior05tri2+0.9.244.0.py  the exact v138 branch that became 0.16.0.0
+RawHebb+tri1Mbuck64hidden432four4kbagnormprior05tri2+0.9.251.0.py  the exact v139 branch that became 0.17.0.0
 RawHebb+tri4buck64hidden416four8k+0.9.158.0.py  best top-5 branch (63.84 %), lower CE/top-1
 RawHebb+tri4buck64hidden352+0.9.127.0.py  best top-1 branch of v123 (40.61 %)
 RawHebb+lab+0.9.0.0.py      v121 experiment bench (all switches)
@@ -150,33 +152,32 @@ Full corpus (2 850 dialogues, one epoch, CPU), held-out 150 dialogues. The model
 the same last-128-token windows it trains on (18 900 scored assistant tokens); the n-gram baselines
 below use exactly the same windows and mask (see `research/_v122_bigram_ref.py`):
 
-| metric | **0.16.0.0** | 0.15.0.0 | bigram (unigram-prior, same window) | bigram add-1 | unigram add-1 | old 0.6.0.0* |
+| metric | **0.17.0.0** | 0.16.0.0 | bigram (unigram-prior, same window) | bigram add-1 | unigram add-1 | old 0.6.0.0* |
 |---|---|---|---|---|---|---|
-| cross-entropy | **3.150** | 3.170 | 3.809 | 4.456 | 5.785 | 5.862 |
-| top-1 | **41.35 %** | 40.38 % | 31.32 % | 31.39 % | 4.83 % | 14.85 % |
-| top-5 | **63.84 %** | 63.78 % | 58.05 % | 58.07 % | 15.85 % | 27.17 % |
+| cross-entropy | **3.141** | 3.150 | 3.809 | 4.456 | 5.785 | 5.862 |
+| top-1 | **41.59 %** | 41.35 % | 31.32 % | 31.39 % | 4.83 % | 14.85 % |
+| top-5 | **63.86 %** | 63.84 % | 58.05 % | 58.07 % | 15.85 % | 27.17 % |
 
 \* 0.6.0.0 was measured on the old two-step-ahead task; it is shown for lineage only and is not
 directly comparable.
 
 The model is **better than a window-matched bigram on CE, top-1 and top-5**, with no
-back-propagation anywhere. 0.16.0.0 keeps the 0.15 row-normalised bag prior and turns three pure
-count knobs: the trigram count buckets 64k -> 256k, the trigram prior strength 4 -> 2, and the
-hidden width 416 -> 432. It improves 0.15.0.0 by **0.0208 CE and 0.75 points top-1** at equal
-top-5. **Seed robustness:** three seeds give CE 3.1496 / 3.1546 / 3.1507 (mean **3.1516**), top-1
-41.35 / 41.22 / 41.02 % (mean **41.20 %**) and top-5 63.84 / 63.77 / 63.80 % (mean **63.80 %**);
-the 0.15.0.0 means are 3.1724 / 40.45 % / 63.78 %, so all three improve. The gain comes from the
-count-table resolution: 128k buckets already reach 3.1584 CE and 256k reaches 3.1496, while the
-hidden-width axis alone is flat (h432 3.1709, h448 3.1728) and hidden 464 is worse. On the 500
-dialogue screen the three axes combine monotonically (64k/h416 3.6005 -> 128k/h432 3.5934 ->
-256k/h432 3.5902).
+back-propagation anywhere. 0.17.0.0 keeps the 0.16 configuration and widens the trigram count table
+from 256k to **1M buckets** (a pure count-resolution change). It improves 0.16.0.0 by **0.0082 CE
+and 0.28 points top-1** at equal top-5. **Seed robustness:** three seeds give CE 3.1411 / 3.1458 /
+3.1433 (mean **3.1434**), top-1 41.59 / 41.49 / 41.36 % (mean **41.48 %**) and top-5 63.86 / 63.78
+/ 63.74 % (mean **63.79 %**); the 0.16.0.0 means are 3.1516 / 41.20 % / 63.80 %, so CE and top-1
+improve with top-5 level. The bucket axis is still not saturated (full-corpus CE 3.1584 at 128k,
+3.1496 at 256k, 3.1411 at 1M), but a 2M table is about 23 GB and does not fit this machine's RAM,
+so 1M is the practical ceiling here. Hidden width stays at 432; hidden 400/428/436/448 are flat and
+464 is worse.
 
-> **Naming correction (2026-10-20).** The 0.13.0.0 / 0.14.0.0 / 0.15.0.0 / 0.16.0.0 key uses
-> `_tri_base = 4096` and `FOURGRAM_BUCKETS = 4096`, so the 4-gram hash collapses to the last token:
-> it is a last-token count table, not a strict 4-gram. 0.13 interpolates it with the trigram prior;
-> 0.14 with the raw bag-of-past prior; 0.15 and 0.16 with the row-normalised bag. The measured
-> scores are unchanged; a true 4-gram key is much worse (see `docs/FINDINGS.md`, v129). The release
-> labels are kept for lineage.
+> **Naming correction (2026-10-20).** The 0.13.0.0 / 0.14.0.0 / 0.15.0.0 / 0.16.0.0 / 0.17.0.0
+> key uses `_tri_base = 4096` and `FOURGRAM_BUCKETS = 4096`, so the 4-gram hash collapses to the
+> last token: it is a last-token count table, not a strict 4-gram. 0.13 interpolates it with the
+> trigram prior; 0.14 with the raw bag-of-past prior; 0.15 and later with the row-normalised bag.
+> The measured scores are unchanged; a true 4-gram key is much worse (see `docs/FINDINGS.md`, v129).
+> The release labels are kept for lineage.
 
 **The decisive finding of this release: a target-shift bug that had been present since 0.1.0.0.**
 `chat_to_ids` already returns `labels[t] = token t+1` (the standard next-token target), but the
@@ -243,7 +244,8 @@ RawHebb+bio+<a>.<b>.<c>.<d>.py   (four-segment version, no `v` prefix)
 | 0.13.0.0 | adds the 4k count expert (last-token table + trigram prior; the hash key collapses, see the naming correction above). Full corpus: CE 3.1772, top-1 40.43 %, top-5 63.69 %, beating 0.12.0.0 on all three. The 8k variant keeps the best top-5 (63.84 %). |
 | 0.14.0.0 | replaces the four expert's trigram prior with a raw bag-of-past-tokens prior. Full corpus seed43: CE 3.1740, top-1 40.43 %, top-5 63.77 %. Three seeds mean 3.1755 / 40.45 % / 63.76 %. |
 | 0.15.0.0 | row-normalises the bag context rows and uses a Jeffreys 0.5 four prior. Full corpus seed43: CE 3.1705, top-1 40.38 %, top-5 63.78 %. Three seeds mean 3.1724 / 40.45 % / 63.78 %. |
-| **0.16.0.0** | **widens the trigram count table to 256k buckets, lowers the trigram prior to 2 and the hidden width to 432**, keeping the row-normalised bag prior. Full corpus seed43: CE **3.1496**, top-1 **41.35 %**, top-5 **63.84 %**. Three seeds: 3.1496 / 3.1546 / 3.1507 (mean **3.1516**), top-1 41.35 / 41.22 / 41.02 % (mean **41.20 %**), top-5 63.84 / 63.77 / 63.80 % (mean **63.80 %**); the 0.15 means are 3.1724 / 40.45 % / 63.78 %, so all three improve. |
+| 0.16.0.0 | widens the trigram count table to 256k buckets, lowers the trigram prior to 2 and the hidden width to 432, keeping the row-normalised bag prior. Full corpus seed43: CE 3.1496, top-1 41.35 %, top-5 63.84 %. Three seeds mean 3.1516 / 41.20 % / 63.80 %. |
+| **0.17.0.0** | **widens the trigram count table to 1M buckets**. Full corpus seed43: CE **3.1411**, top-1 **41.59 %**, top-5 **63.86 %**. Three seeds: 3.1411 / 3.1458 / 3.1433 (mean **3.1434**), top-1 41.59 / 41.49 / 41.36 % (mean **41.48 %**), top-5 63.86 / 63.78 / 63.74 % (mean **63.79 %**); the 0.16 means are 3.1516 / 41.20 % / 63.80 %, so CE and top-1 improve with top-5 level. |
 
 ---
 
@@ -275,21 +277,23 @@ AGPL-3.0. See [`LICENSE`](LICENSE).
 **问答 mask 与防泄露**：user 段与格式 token 的 label 置 `-100`，只统计 assistant；
 训练/验证按**对话**切分，并做精确重复、跨集 sha1、user 前缀、8-gram 四项泄露检查（结果见 README）。
 
-**必须说清楚的现状（0.16.0.0）**：全量 2850 条 / 1 epoch 后，验证 **CE 3.1496 / top-1 41.35% /
-top-5 63.84%**（tri 桶 256k + tri 先验 2 + hidden432 + 行归一化 past-context bag 先验；
-0.15 是 3.1705/40.38/63.78）。
+**必须说清楚的现状（0.17.0.0）**：全量 2850 条 / 1 epoch 后，验证 **CE 3.1411 / top-1 41.59% /
+top-5 63.86%**（tri 桶 1M + tri 先验 2 + hidden432 + 行归一化 past-context bag 先验；
+0.16 是 3.1496/41.35/63.84）。
 同窗口、同 mask 的 bigram
 （unigram 先验）是 CE 3.809 / top-1 31.32% / top-5 58.05%，add-1 bigram 是 CE 4.456 / top-1
 31.39%；**三个指标都超过 bigram**。旧版本还修掉了从 0.1.0.0 起就存在的 **目标位移 off-by-one**：
 旧代码用 `logits[t]` 对 `labels[t+1]`，实际训练的是「隔一个 token」的任务；同一份 0.6.0.0 权重
 在标准对齐下只有 top-1 2.68%，所以 **0.10.0.0 之前的数字不能直接比**。
 
+0.17.0.0 在 0.16 上只把 **tri 计数桶 256k→1M**（纯计数分辨率），其余不变。相对 0.16：
+CE -0.0082、top-1 +0.28、top-5 持平。三种子 CE 3.1411/3.1458/3.1433（均值 **3.1434**），
+top-1 41.59/41.49/41.36%（均值 **41.48%**），top-5 63.86/63.78/63.74%（均值 **63.79%**）；
+0.16 均值 3.1516/41.20%/63.80%。桶轴仍未饱和（全量 128k 3.1584、256k 3.1496、1M 3.1411），
+但 2M 表约 23GB，超出本机内存，1M 为实际上限。见 `docs/FINDINGS.md`。
+
 0.16.0.0 在 0.15 上只动三个纯计数量：**tri 计数桶 64k→256k、tri 先验强度 4→2、隐藏宽度
-416→432**（bag 行归一化与 Jeffreys 0.5 不变）。相对 0.15：CE -0.0208、top-1 +0.75、top-5 持平。
-三种子 CE 3.1496/3.1546/3.1507（均值 **3.1516**），top-1 41.35/41.22/41.02%（均值 **41.20%**），
-top-5 63.84/63.77/63.80%（均值 **63.80%**）；0.15 均值 3.1724/40.45%/63.78%。增益主要来自
-计数表分辨率（128k 桶全量已到 3.1584、256k 到 3.1496），隐藏宽度轴单独几乎不动（h432 3.1709、
-h448 3.1728，h464 更差）；500 条上三轴单调叠加。见 `docs/FINDINGS.md`。
+416→432**（bag 行归一化与 Jeffreys 0.5 不变）。三种子均值 3.1516/41.20%/63.80%。
 
 0.15.0.0 在 0.14 的 hidden416 + 4k 计数专家上，把 bag 先验改成**归一化的过去上下文条件
 分布之和**：每个过去 token 的 pair 行先归一化再做因果 cumsum；four 专家的伪计数取 **Jeffreys
@@ -302,7 +306,7 @@ top-5 +0.08、top-1 持平；三种子均值 3.1755/40.45%/63.76%。
 0.13.0.0 在 hidden416 上加 4k 计数专家（last-token 表 + trigram 先验回退），比 0.12 三项全好：
 CE -0.0174、top-1 +0.09、top-5 +0.17。8k 桶变体的 top-5 更高（63.84%），但 CE/top-1 略低，
 作为 top-5 分支保留。4-gram 64k 桶曾因太稀疏而权重≈0；4k/8k 桶才让它生效。
-**命名更正：** 0.13/0.14/0.15/0.16 的 key 因 `_tri_base = 4096` 与 `FOURGRAM_BUCKETS = 4096` 相同而塌缩成
+**命名更正：** 0.13/0.14/0.15/0.16/0.17 的 key 因 `_tri_base = 4096` 与 `FOURGRAM_BUCKETS = 4096` 相同而塌缩成
 最后一个 token，实际是「last-token 计数」专家，不是严格 4-gram；0.13 用 trigram 先验，0.14/0.15 用
 bag 先验。分数不变，真 4-gram 明显更差（FINDINGS v129）。
 
