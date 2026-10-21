@@ -3,7 +3,20 @@
 All notable changes to RawHebb. Versions follow `RawHebb+bio+<a>.<b>.<c>.<d>.py` (four segments, no `v` prefix);
 every change is a new file, older versions are kept verbatim.
 
-## [0.15.0.0] - current
+## [0.16.0.0] - current
+* **Wider trigram count table, lower trigram prior, slightly wider hidden layer.** On top of the
+  0.15 row-normalised bag prior, the pure count knobs move: trigram buckets 64k -> **256k**, trigram
+  prior strength 4 -> **2**, hidden 416 -> **432**. Full corpus seed43: CE **3.1496**, top-1
+  **41.35 %**, top-5 **63.84 %** (0.15: 3.1705 / 40.38 % / 63.78 %).
+* **Seeds:** CE 3.1496 / 3.1546 / 3.1507 (mean **3.1516**), top-1 41.35 / 41.22 / 41.02 % (mean
+  **41.20 %**), top-5 63.84 / 63.77 / 63.80 % (mean **63.80 %**); the 0.15 means are 3.1724 /
+  40.45 % / 63.78 %, so all three improve. The gain is in the count-table resolution: 128k buckets
+  alone already give 3.1584, hidden width alone is flat (h432 3.1709, h448 3.1728, h464 worse).
+* Rejected in v138: hidden 400 / 428 / 436 / 464, 32k buckets, 5 layers, 2 epochs, seq 192, a
+  separate raw bag expert, four-table row normalisation, tri prior 2/8 without the bucket change,
+  and the row0.5/final0.5 smoothing pair.
+
+## [0.15.0.0]
 * **Row-normalised past-context bag prior.** Each past context's pair row is normalised before the
   causal cumsum, so rare and frequent contexts each vote once; the four expert's pseudo-count is the
   Jeffreys prior 0.5. It improves 0.14.0.0 by 0.0031 CE and 0.02 points top-5 at equal mean top-1.

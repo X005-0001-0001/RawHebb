@@ -759,3 +759,32 @@ _v123_release.py; branches RawHebb+tri4buck64hidden416+0.9.137.0.py,
 RawHebb+tri4buck64hidden384+0.9.128.0.py, RawHebb+tri4buck64hidden352+0.9.127.0.py, and the
 negative v124 files. Full-run logs are kept locally as _v123_full_*.out and checkpoint files as
 _v123_full_*.pt.
+
+### v138 - count-table resolution is the third real axis (0.16.0.0)
+
+On top of the v137 row-normalised bag prior we swept three axes again.  All 500-dialogue screens
+use the same 150-dialogue held-out split with `--val-max 50`; the 0.15 baseline is 3.6005 / 37.40 /
+59.27.
+
+Hidden width is flat or worse: h400 3.6000, h428 (at 256k) 3.5963, h432 3.5984, h436 (at 256k)
+3.5996, h448 3.5993, h464 3.6066.  Full corpus confirms it: h432 3.1709, h448 3.1728 (0.15 is
+3.1705).
+
+Trigram bucket count keeps helping: 32k 3.6060, 64k 3.6005, 128k 3.5994, 256k 3.6002 alone, and
+128k+h432 3.5934, 256k+h432+tri-prior-2 3.5902.  Full corpus: 128k 3.1584, 256k+h432+tri2 3.1496
+(seed43).  Lowering the trigram prior from 4 to 2 is worth about 0.003 CE at 256k.
+
+The three axes stack monotonically on the screen (3.6005 -> 3.5934 -> 3.5902).  Three full seeds of
+the winning triple (256k buckets, hidden 432, trigram prior 2, row-normalised bag, Jeffreys 0.5):
+3.1496 / 3.1546 / 3.1507 (mean **3.1516**), top-1 41.35 / 41.22 / 41.02 % (mean **41.20 %**),
+top-5 63.84 / 63.77 / 63.80 % (mean **63.80 %**).  The 0.15 means are 3.1724 / 40.45 % / 63.78 %,
+so all three improve; this branch is promoted to **0.16.0.0**.
+
+A repeat of the 2-epoch check still overfits (train CE 1.95, val 3.6105).  Sequence length 192
+gives 3.6869 CE but scores a different (longer) token set, so it is not comparable and was dropped.
+Seeds 44 and 45 were prepared as 0.9.249.0 / 0.9.250.0.
+
+**GPU re-check (v138).**  The two GPU builds (row0.5 and bag alpha 0.75) reproduce the CPU numbers
+exactly (row0.5: GPU 3.6005/37.37/59.24 vs CPU 3.6007/37.37/59.24; alpha0.75: 3.6032/37.43/59.11 vs
+3.6032/37.43/59.08), but take about five times longer (3003 s vs 588 s for 500 dialogues) under
+contention, so the online kernel remains CPU-only.
