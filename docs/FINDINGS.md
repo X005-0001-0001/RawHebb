@@ -879,3 +879,40 @@ trained from 170 text segments saves v5 metadata, reloads, encodes and decodes; 
 `0` exit work. Six dead constants left over from the optimiser era were removed. The model defaults
 are unchanged: hidden 432, 4 layers, `SEQ_LEN` 384, `EVAL_LEN` 128, 1M int16 trigram buckets,
 4k last-token counts, row-normalised bag prior with Jeffreys 0.5.
+
+### v142 - the 3120012 shell, actually ported (0.20.0.0)
+
+0.19.0.0 was not usable: menu item 1 raised `NameError: select_dataset_file` because the helper
+block was inserted inside the section that a later replacement removed. More importantly, its data
+layer only imitated 3120012. v142 ports the real chain.
+
+**Rendering and mask.** `render_messages` semantics are reproduced token by token: `<|bos|>`, an
+optional tools header (`<|user|>[工具]…<|end|>`), system (`<|user|>[系统]…<|end|>`), user, tool
+results, and assistant (`<|assistant|>` + `reasoning_content` + `content` + `tool_calls` +
+`<|end|>`), followed by `<|eos|>`. Only assistant content, its `<|end|>` and the final `<|eos|>`
+are trained; everything else is -100. A synthetic test gives 28 tokens for a short system/user/
+assistant turn and decodes the trained positions as `想一下你好！` (reasoning + answer).
+
+**Context.** `_truncate_pairs` is ported: keep the leading consecutive system messages, then walk
+backwards and keep complete (user, assistant) pairs until the token budget (+2 for bos/eos) is
+reached; the last pair is always accepted. Token cost is computed with the actual rendered segment
+(role + content + end + reasoning + tool_calls), not characters. A 20-pair dialogue truncated to
+120 tokens keeps the system prompt and pairs 17-19 and drops pair 0.
+
+**Split and validation.** `.jsonl` validation is now a record-level random sample (`random.sample`,
+10 %, fixed seed) or an explicit val file. Validation uses the same processing and the same
+`SEQ_LEN` window as training; `EVAL_LEN=0` disables the old last-128 slice. `.txt` is pretraining:
+whole-file tokenisation into `SEQ_LEN+1` windows, every position scored, windows shuffled by the
+fixed seed, no validation unless a `.txt` val file is given.
+
+**Measured.** A 40-dialogue smoke run with no val file produced 36 train / 4 val records and full
+window validation (4 358 positions, CE 4.2928). Evaluating the 0.18 seed43 checkpoint with the new
+protocol gives CE **3.3545**, top-1 **38.06 %**, top-5 **60.60 %** over 166 632 positions. The old
+last-128 protocol gave 3.0543 / 41.86 / 64.23 on 19 050 positions. These are different token sets
+and different difficulty; 0.20 is a shell release, not a model improvement. A menu run in a clean
+directory containing only a `.txt` file auto-trained a vocabulary, listed the dataset, trained two
+windows and returned to the menu without error.
+
+**Online learning.** Requires a checkpoint. From random initialisation the first Newton step is
+ill-conditioned (||W_out|| 52 -> 11813 after two dialogues); with the 0.18 checkpoint the same two
+dialogues move it 0.633 -> 0.634.

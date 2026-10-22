@@ -3,6 +3,25 @@
 All notable changes to RawHebb. Versions follow `RawHebb+bio+<a>.<b>.<c>.<d>.py` (four segments, no `v` prefix);
 every change is a new file, older versions are kept verbatim.
 
+## [0.20.0.0] - current
+* **Usable shell: the 3120012 data chain ported to the RawHebb core.** 0.19.0.0 crashed on menu
+  item 1 because a helper was defined inside a replaced block; that is fixed, and the approximate
+  data layer is replaced by an actual port of the 3120012 logic.
+* **Rendering/mask:** `<|bos|>` + tools + system/user/tool/assistant segments + `<|eos|>`;
+  assistant `reasoning_content`, `content` and `tool_calls` are trained, everything else is -100.
+* **Context truncation:** `_truncate_pairs` semantics - keep the leading system prompt and the
+  newest complete user/assistant pairs, budgeted in real tokens (including role/end/reasoning/tool
+  calls), never cutting a sentence in the middle.
+* **Validation:** a record-level random 10 % sample by default (fixed seed) or an explicit val
+  file; validation uses the **same `SEQ_LEN` window as training**, not a separate last-128 slice.
+  `.txt` pretraining remains all-token with shuffled windows and no validation by default.
+* **No new benchmark claim:** the model recipe is unchanged and was not retrained. The same 0.18
+  checkpoint scores CE **3.3545** / top-1 **38.06 %** / top-5 **60.60 %** over 166 632 positions
+  under the full-window protocol; these numbers are not comparable to the last-128 numbers of
+  0.15-0.18.
+* **Online learning** (menu 13) requires a trained checkpoint and supports file streaming or
+  in-chat updates.
+
 ## [0.19.0.0] - current
 * **Shell overhaul; the model recipe is unchanged.** Loading the 0.18.0.0 checkpoint reproduces
   CE **3.0543** / top-1 **41.86 %** / top-5 **64.23 %** exactly (verified with
