@@ -812,3 +812,40 @@ Other v139 notes: a separate raw-bag expert, hidden 400/428/436/464, 32k buckets
 epochs and seq 192 all failed earlier.  Disk was briefly full (D: 0.2 GB) during the first 1M full
 run, which broke `torch.save` after training; 93.4 GB of old checkpoints were deleted and the run
 was repeated.
+
+### v140 - full-dialogue training, int16 counts, and the 2M ceiling (0.18.0.0)
+
+The corpus tokeniser caps a dialogue at 511 tokens; measured over all 2 850 training dialogues the
+lengths are mean 472.1, median 511, and only 0.6 % / 1.4 % / 4.5 % / 14.2 % are <=128 / 192 / 256 /
+384 tokens. The online learner had always been fed `ids[-128:]`, i.e. roughly the last quarter of
+each dialogue. v140 changes only that training window; `evaluate` still slices the same last 128
+tokens, so every number stays comparable.
+
+Screens (500 dialogues, `--val-max 50`, 1M int16 table, hidden 432, trigram prior 2, row-normalised
+bag, Jeffreys 0.5): train length 128 -> 3.5864, 192 -> 3.5137, 256 -> 3.4891, 384 -> 3.4529,
+512 -> 3.4503. The monotone gain is the extra context actually entering the counts; 512 is the full
+dialogue and saturates.
+
+Full corpus seed43, train 384 / eval 128: **3.0543 / 41.86 / 64.23**; train 512: 3.0535 / 41.59 /
+64.15. Three seeds of 384: 3.0543 / 3.0554 / 3.0561 (mean **3.0553**), top-1 41.86 / 41.65 / 41.71 %
+(mean **41.74 %**), top-5 64.23 / 64.27 / 64.19 % (mean **64.23 %**). Three seeds of 512: 3.0535 /
+3.0549 / 3.0541 (mean 3.0542), top-1 41.59 / 41.36 / 41.33 % (mean 41.43 %), top-5 64.15 / 64.08 /
+64.21 % (mean 64.15 %). CE is tied within one seed standard deviation (about 0.0008); 384 is
++0.31 top-1, +0.08 top-5 and about 30 % faster (1 442-2 306 s versus about 3 000 s), so 384 is
+**0.18.0.0**. Relative to 0.17 (mean 3.1434 / 41.48 / 63.79) that is -0.088 CE, +0.26 top-1,
++0.44 top-5 from a pure training-window change with no new parameters.
+
+**int16 counts.** Storing the 1M trigram table as int16 reproduces float32 exactly at full scale:
+seed43 3.1411 / 41.59 / 63.86 (float32) versus 3.1411 / 41.59 / 63.86 (int16), and the 500 screen
+3.5864 versus 3.5863. This halves the table (6.2 GB checkpoint instead of 12.4 GB) and makes
+second-pass evaluation possible via `_v162_eval_ckpt.py`, which is how seed45 of the 512 run was
+recovered after its PTY buffer was cleared. The 2M int16 table (11.55 GB) trains, but its screen is
+3.5869 / 38.13 / 59.49 versus 3.5864 / 38.30 / 59.43 at 1M, so the bucket axis is **saturated**, not
+merely resource-limited; 1M stays.
+
+**Operational notes.** D: filled up again during the first 1M int16 full run and `torch.save` failed
+after training (`inline_container.cc:672`); 51.2 GB of screen checkpoints were removed. The PTY
+registry was cleared twice more by the terminal UI, killing running runs; the final protocol is one
+full run at a time over PTY, and detached `Start-Process` is not used. Large int16 checkpoints can
+be re-scored with `_v162_eval_ckpt.py` (mmap + filtered `load_state_dict`), which avoids the
+double-table OOM of `_v122_eval.py`.

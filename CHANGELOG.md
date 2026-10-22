@@ -3,7 +3,25 @@
 All notable changes to RawHebb. Versions follow `RawHebb+bio+<a>.<b>.<c>.<d>.py` (four segments, no `v` prefix);
 every change is a new file, older versions are kept verbatim.
 
-## [0.17.0.0] - current
+## [0.18.0.0] - current
+* **Full-dialogue training window.** The online counts and membrane state now see the whole
+  dialogue (capped at 384 tokens) instead of its last 128 tokens; evaluation is unchanged and
+  still scores the last-128-token windows, so the comparison is exact. On this corpus dialogues
+  average 472 tokens (median 511), so each one contributes about four times more context. No new
+  parameters, no new constants, no back-propagation.
+* Full corpus seed43: CE **3.0543**, top-1 **41.86 %**, top-5 **64.23 %** (0.17: 3.1411 /
+  41.59 % / 63.86 %), i.e. **-0.088 CE, +0.27 top-1, +0.44 top-5**.
+* **Seeds:** CE 3.0543 / 3.0554 / 3.0561 (mean **3.0553**), top-1 41.86 / 41.65 / 41.71 % (mean
+  **41.74 %**), top-5 64.23 / 64.27 / 64.19 % (mean **64.23 %**); the 0.17 means are 3.1434 /
+  41.48 % / 63.79 %.
+* Training at 512 tokens (the complete dialogue) ties on CE (mean 3.0542) but gives top-1 41.43 %
+  and is about 30 % slower, so 384 is shipped. Screen trajectory 128 -> 192 -> 256 -> 384 -> 512:
+  3.5864 -> 3.5137 -> 3.4891 -> 3.4529 -> 3.4503.
+* **int16 count table validated:** a 1M int16 table reproduces float32 exactly (full seed43
+  3.1411 / 41.59 % / 63.86 %) at half the memory. With int16 a 2M table fits, but it scores 3.5869
+  on the screen versus 3.5864 at 1M, so the count-bucket axis is saturated at 1M.
+
+## [0.17.0.0]
 * **1M trigram count buckets.** On top of 0.16, the trigram table is widened from 256k to **1M**
   buckets (a pure count-resolution change; hidden 432, trigram prior 2 and the row-normalised bag
   prior are unchanged). Full corpus seed43: CE **3.1411**, top-1 **41.59 %**, top-5 **63.86 %**

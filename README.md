@@ -5,7 +5,7 @@ Purely forward dynamics — leaky membrane integrators, threshold spikes, and lo
 plasticity. No optimiser, no loss backward pass, no global gradient, no attention, no hand-tuned
 magic constants.
 
-> Branch `bio` · current release **0.17.0.0** · license **AGPL-3.0**
+> Branch `bio` · current release **0.18.0.0** · license **AGPL-3.0**
 
 中文速览见 [中文说明](#中文说明)。
 
@@ -59,7 +59,8 @@ RawHebb+bio+0.13.0.0.py     single-file application (kept for history)
 RawHebb+bio+0.14.0.0.py     single-file application (kept for history)
 RawHebb+bio+0.15.0.0.py     single-file application (kept for history)
 RawHebb+bio+0.16.0.0.py     single-file application (kept for history)
-RawHebb+bio+0.17.0.0.py     single-file application, current
+RawHebb+bio+0.17.0.0.py     single-file application (kept for history)
+RawHebb+bio+0.18.0.0.py     single-file application, current
 RawHebb+seq128tri+0.9.33.0.py  the exact v121 experimental branch that became 0.10.0.0
 RawHebb+trinoshuf+0.9.52.0.py  the exact v122 experimental branch that became 0.11.0.0
 RawHebb+tri4buck64hidden416+0.9.137.0.py  the exact v123 branch that became 0.12.0.0
@@ -68,6 +69,8 @@ RawHebb+tri4buck64hidden416four4kfourbagprior+0.9.186.0.py  the exact v135 branc
 RawHebb+tri4buck64hidden416four4kbagnormprior05+0.9.206.0.py  the exact v137 branch that became 0.15.0.0
 RawHebb+tri256kbuck64hidden432four4kbagnormprior05tri2+0.9.244.0.py  the exact v138 branch that became 0.16.0.0
 RawHebb+tri1Mbuck64hidden432four4kbagnormprior05tri2+0.9.251.0.py  the exact v139 branch that became 0.17.0.0
+RawHebb+tri1Mbuck64hidden432four4kbagnormprior05tri2int16+0.9.254.0.py  int16 1M count table (identical numerics)
+RawHebb+tri1Mbuck64hidden432four4kbagnormprior05tri2int16train384+0.9.258.0.py  the exact v140 branch that became 0.18.0.0
 RawHebb+tri4buck64hidden416four8k+0.9.158.0.py  best top-5 branch (63.84 %), lower CE/top-1
 RawHebb+tri4buck64hidden352+0.9.127.0.py  best top-1 branch of v123 (40.61 %)
 RawHebb+lab+0.9.0.0.py      v121 experiment bench (all switches)
@@ -152,27 +155,32 @@ Full corpus (2 850 dialogues, one epoch, CPU), held-out 150 dialogues. The model
 the same last-128-token windows it trains on (18 900 scored assistant tokens); the n-gram baselines
 below use exactly the same windows and mask (see `research/_v122_bigram_ref.py`):
 
-| metric | **0.17.0.0** | 0.16.0.0 | bigram (unigram-prior, same window) | bigram add-1 | unigram add-1 | old 0.6.0.0* |
+| metric | **0.18.0.0** | 0.17.0.0 | bigram (unigram-prior, same window) | bigram add-1 | unigram add-1 | old 0.6.0.0* |
 |---|---|---|---|---|---|---|
-| cross-entropy | **3.141** | 3.150 | 3.809 | 4.456 | 5.785 | 5.862 |
-| top-1 | **41.59 %** | 41.35 % | 31.32 % | 31.39 % | 4.83 % | 14.85 % |
-| top-5 | **63.86 %** | 63.84 % | 58.05 % | 58.07 % | 15.85 % | 27.17 % |
+| cross-entropy | **3.054** | 3.141 | 3.809 | 4.456 | 5.785 | 5.862 |
+| top-1 | **41.86 %** | 41.59 % | 31.32 % | 31.39 % | 4.83 % | 14.85 % |
+| top-5 | **64.23 %** | 63.86 % | 58.05 % | 58.07 % | 15.85 % | 27.17 % |
 
 \* 0.6.0.0 was measured on the old two-step-ahead task; it is shown for lineage only and is not
 directly comparable.
 
 The model is **better than a window-matched bigram on CE, top-1 and top-5**, with no
-back-propagation anywhere. 0.17.0.0 keeps the 0.16 configuration and widens the trigram count table
-from 256k to **1M buckets** (a pure count-resolution change). It improves 0.16.0.0 by **0.0082 CE
-and 0.28 points top-1** at equal top-5. **Seed robustness:** three seeds give CE 3.1411 / 3.1458 /
-3.1433 (mean **3.1434**), top-1 41.59 / 41.49 / 41.36 % (mean **41.48 %**) and top-5 63.86 / 63.78
-/ 63.74 % (mean **63.79 %**); the 0.16.0.0 means are 3.1516 / 41.20 % / 63.80 %, so CE and top-1
-improve with top-5 level. The bucket axis is still not saturated (full-corpus CE 3.1584 at 128k,
-3.1496 at 256k, 3.1411 at 1M), but a 2M table is about 23 GB and does not fit this machine's RAM,
-so 1M is the practical ceiling here. Hidden width stays at 432; hidden 400/428/436/448 are flat and
-464 is worse.
+back-propagation anywhere. 0.18.0.0 changes only the training window: the online counts and state
+now see the **whole dialogue** (capped at 384 tokens) instead of the last 128, while evaluation
+still scores exactly the same last-128-token windows. The corpus averages 472 tokens per dialogue
+(median 511), so 0.18 learns from about four times more context per dialogue with no new
+parameters. It improves 0.17.0.0 by **0.088 CE, 0.27 points top-1 and 0.44 points top-5**.
+**Seed robustness:** three seeds give CE 3.0543 / 3.0554 / 3.0561 (mean **3.0553**), top-1 41.86 /
+41.65 / 41.71 % (mean **41.74 %**) and top-5 64.23 / 64.27 / 64.19 % (mean **64.23 %**); the
+0.17.0.0 means are 3.1434 / 41.48 % / 63.79 %. Training at 512 tokens (the complete dialogue) is
+tied on CE (mean 3.0542) but lower on top-1 (41.43 %) and about 30 % slower, so 384 is shipped.
+The screen trajectory 128 -> 192 -> 256 -> 384 -> 512 is 3.5864 -> 3.5137 -> 3.4891 -> 3.4529 ->
+3.4503. The 1M trigram table stored as int16 is numerically identical to float32 (full seed43
+3.1411 vs 3.1411) at half the memory; a 2M int16 table fits, but it scores 3.5869 on the screen
+versus 3.5864 at 1M, so the bucket axis is saturated at 1M. Hidden width stays at 432; hidden
+400/428/436/448 are flat and 464 is worse.
 
-> **Naming correction (2026-10-20).** The 0.13.0.0 / 0.14.0.0 / 0.15.0.0 / 0.16.0.0 / 0.17.0.0
+> **Naming correction (2026-10-20).** The 0.13.0.0 / 0.14.0.0 / 0.15.0.0 / 0.16.0.0 / 0.17.0.0 / 0.18.0.0
 > key uses `_tri_base = 4096` and `FOURGRAM_BUCKETS = 4096`, so the 4-gram hash collapses to the
 > last token: it is a last-token count table, not a strict 4-gram. 0.13 interpolates it with the
 > trigram prior; 0.14 with the raw bag-of-past prior; 0.15 and later with the row-normalised bag.
@@ -246,6 +254,7 @@ RawHebb+bio+<a>.<b>.<c>.<d>.py   (four-segment version, no `v` prefix)
 | 0.15.0.0 | row-normalises the bag context rows and uses a Jeffreys 0.5 four prior. Full corpus seed43: CE 3.1705, top-1 40.38 %, top-5 63.78 %. Three seeds mean 3.1724 / 40.45 % / 63.78 %. |
 | 0.16.0.0 | widens the trigram count table to 256k buckets, lowers the trigram prior to 2 and the hidden width to 432, keeping the row-normalised bag prior. Full corpus seed43: CE 3.1496, top-1 41.35 %, top-5 63.84 %. Three seeds mean 3.1516 / 41.20 % / 63.80 %. |
 | **0.17.0.0** | **widens the trigram count table to 1M buckets**. Full corpus seed43: CE **3.1411**, top-1 **41.59 %**, top-5 **63.86 %**. Three seeds: 3.1411 / 3.1458 / 3.1433 (mean **3.1434**), top-1 41.59 / 41.49 / 41.36 % (mean **41.48 %**), top-5 63.86 / 63.78 / 63.74 % (mean **63.79 %**); the 0.16 means are 3.1516 / 41.20 % / 63.80 %, so CE and top-1 improve with top-5 level. |
+| **0.18.0.0** | **trains on the whole dialogue (up to 384 tokens) while scoring the same last-128-token windows**. Full corpus seed43: CE **3.0543**, top-1 **41.86 %**, top-5 **64.23 %**. Three seeds: 3.0543 / 3.0554 / 3.0561 (mean **3.0553**), top-1 41.86 / 41.65 / 41.71 % (mean **41.74 %**), top-5 64.23 / 64.27 / 64.19 % (mean **64.23 %**); the 0.17 means are 3.1434 / 41.48 % / 63.79 %. |
 
 ---
 
@@ -277,20 +286,23 @@ AGPL-3.0. See [`LICENSE`](LICENSE).
 **问答 mask 与防泄露**：user 段与格式 token 的 label 置 `-100`，只统计 assistant；
 训练/验证按**对话**切分，并做精确重复、跨集 sha1、user 前缀、8-gram 四项泄露检查（结果见 README）。
 
-**必须说清楚的现状（0.17.0.0）**：全量 2850 条 / 1 epoch 后，验证 **CE 3.1411 / top-1 41.59% /
-top-5 63.86%**（tri 桶 1M + tri 先验 2 + hidden432 + 行归一化 past-context bag 先验；
-0.16 是 3.1496/41.35/63.84）。
+**必须说清楚的现状（0.18.0.0）**：全量 2850 条 / 1 epoch 后，验证 **CE 3.0543 / top-1 41.86% /
+top-5 64.23%**（完整对话训练 ≤384 token + tri 桶 1M int16 + tri 先验 2 + hidden432 +
+行归一化 past-context bag 先验；0.17 是 3.1411/41.59/63.86）。
 同窗口、同 mask 的 bigram
 （unigram 先验）是 CE 3.809 / top-1 31.32% / top-5 58.05%，add-1 bigram 是 CE 4.456 / top-1
 31.39%；**三个指标都超过 bigram**。旧版本还修掉了从 0.1.0.0 起就存在的 **目标位移 off-by-one**：
 旧代码用 `logits[t]` 对 `labels[t+1]`，实际训练的是「隔一个 token」的任务；同一份 0.6.0.0 权重
 在标准对齐下只有 top-1 2.68%，所以 **0.10.0.0 之前的数字不能直接比**。
 
-0.17.0.0 在 0.16 上只把 **tri 计数桶 256k→1M**（纯计数分辨率），其余不变。相对 0.16：
-CE -0.0082、top-1 +0.28、top-5 持平。三种子 CE 3.1411/3.1458/3.1433（均值 **3.1434**），
-top-1 41.59/41.49/41.36%（均值 **41.48%**），top-5 63.86/63.78/63.74%（均值 **63.79%**）；
-0.16 均值 3.1516/41.20%/63.80%。桶轴仍未饱和（全量 128k 3.1584、256k 3.1496、1M 3.1411），
-但 2M 表约 23GB，超出本机内存，1M 为实际上限。见 `docs/FINDINGS.md`。
+0.18.0.0 只改训练窗口：在线计数与状态从「对话最后 128 token」改为「完整对话（上限 384）」，
+评测口径完全不变（仍取每条对话最后 128 token，18 900 个 assistant token）。语料平均 472
+token/对话（中位 511），所以 0.18 每条对话多看约 4 倍上下文，没有新增参数。相对 0.17：
+CE -0.088、top-1 +0.27、top-5 +0.44。三种子 CE 3.0543/3.0554/3.0561（均值 **3.0553**），
+top-1 41.86/41.65/41.71%（均值 **41.74%**），top-5 64.23/64.27/64.19%（均值 **64.23%**）；
+0.17 均值 3.1434/41.48%/63.79%。训练 512（完整对话）CE 均值 3.0542 打平，但 top-1 41.43%
+且慢约 30%，故发布 384。int16 计数表与 float32 数值一致（1M 全量均 3.1411），内存减半；
+2M int16 筛选 3.5869 未超过 1M 的 3.5864，桶轴到顶。见 `docs/FINDINGS.md`。
 
 0.16.0.0 在 0.15 上只动三个纯计数量：**tri 计数桶 64k→256k、tri 先验强度 4→2、隐藏宽度
 416→432**（bag 行归一化与 Jeffreys 0.5 不变）。三种子均值 3.1516/41.20%/63.80%。
