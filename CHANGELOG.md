@@ -3,6 +3,26 @@
 All notable changes to RawHebb. Versions follow `RawHebb+bio+<a>.<b>.<c>.<d>.py` (four segments, no `v` prefix);
 every change is a new file, older versions are kept verbatim.
 
+## [0.20.1.0] - current
+* **Full menu test fixes.** Training on menu 1 now saves the checkpoint automatically (no y/n
+  prompt). Plain-text continuation no longer crashes on prompts shorter than three tokens: the
+  trigram/fourgram key construction now left-pads to the sequence length instead of producing a
+  longer tensor; the prompt is also prefixed with `<|bos|>`.
+* **Clean checkpoints.** `V`, `spike_acc` and the unused `M` buffer are one-shot run state, not
+  model weights; they are no longer stored. Old checkpoints are filtered on load, so the log no
+  longer reports "skipped 4 tensors with mismatched shapes". A 1143-token checkpoint drops from
+  3.6 GiB to 2.3 GiB.
+* **Robust menu.** EOF/Ctrl-D exits cleanly instead of raising a traceback. Rebuilding the
+  vocabulary from menu 12 writes `tokenizer.bin/json` and leaves the read-only base
+  `tokenizer_v63b4000.*` untouched.
+* **Verification:** menu items 1-13 were run end to end (txt and jsonl training, both chat modes,
+  save/load/stats/params, rejection sampling, self-consistency, long-context stress, preprocessing,
+  evaluation, tokenizer view/round-trip/rebuild, online file/chat). Menu 1 auto-saved; menu 2 txt
+  generated; menu 4 loaded 0 skipped / 0 missing / 0 unexpected; menu 12 rebuild preserved the base.
+* **Numbers unchanged from 0.20.0.0:** same 0.18 checkpoint under the full-window protocol is CE
+  **3.3545** / top-1 **38.06 %** / top-5 **60.60 %** over 166 632 positions. Not comparable to the
+  old last-128 numbers.
+
 ## [0.20.0.0] - current
 * **Usable shell: the 3120012 data chain ported to the RawHebb core.** 0.19.0.0 crashed on menu
   item 1 because a helper was defined inside a replaced block; that is fixed, and the approximate

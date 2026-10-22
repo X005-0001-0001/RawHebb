@@ -5,7 +5,7 @@ Purely forward dynamics — leaky membrane integrators, threshold spikes, and lo
 plasticity. No optimiser, no loss backward pass, no global gradient, no attention, no hand-tuned
 magic constants.
 
-> Branch `bio` · current release **0.20.0.0** · license **AGPL-3.0**
+> Branch `bio` · current release **0.20.1.0** · license **AGPL-3.0**
 
 中文速览见 [中文说明](#中文说明)。
 
@@ -62,7 +62,8 @@ RawHebb+bio+0.16.0.0.py     single-file application (kept for history)
 RawHebb+bio+0.17.0.0.py     single-file application (kept for history)
 RawHebb+bio+0.18.0.0.py     single-file application (kept for history)
 RawHebb+bio+0.19.0.0.py     single-file application (superseded: menu NameError)
-RawHebb+bio+0.20.0.0.py     single-file application, current
+RawHebb+bio+0.20.0.0.py     single-file application (superseded: see 0.20.1.0)
+RawHebb+bio+0.20.1.0.py     single-file application, current
 RawHebb+seq128tri+0.9.33.0.py  the exact v121 experimental branch that became 0.10.0.0
 RawHebb+trinoshuf+0.9.52.0.py  the exact v122 experimental branch that became 0.11.0.0
 RawHebb+tri4buck64hidden416+0.9.137.0.py  the exact v123 branch that became 0.12.0.0
@@ -75,6 +76,7 @@ RawHebb+tri1Mbuck64hidden432four4kbagnormprior05tri2int16+0.9.254.0.py  int16 1M
 RawHebb+tri1Mbuck64hidden432four4kbagnormprior05tri2int16train384+0.9.258.0.py  the exact v140 branch that became 0.18.0.0
 RawHebb+shell19+0.9.264.0.py  v141 shell branch (superseded by 0.20.0.0)
 RawHebb+shell20+0.9.265.0.py  the exact v142 shell branch that became 0.20.0.0
+RawHebb+shell20+0.9.266.0.py  the exact v143 branch that became 0.20.1.0
 RawHebb+tri4buck64hidden416four8k+0.9.158.0.py  best top-5 branch (63.84 %), lower CE/top-1
 RawHebb+tri4buck64hidden352+0.9.127.0.py  best top-1 branch of v123 (40.61 %)
 RawHebb+lab+0.9.0.0.py      v121 experiment bench (all switches)
@@ -159,7 +161,7 @@ Full corpus (2 850 dialogues, one epoch, CPU), held-out 150 dialogues. The model
 the same last-128-token windows it trains on (18 900 scored assistant tokens); the n-gram baselines
 below use exactly the same windows and mask (see `research/_v122_bigram_ref.py`):
 
-| metric | **0.20.0.0** (full window) | 0.18.0.0 (last-128) | bigram (unigram-prior, same window) | bigram add-1 | unigram add-1 | old 0.6.0.0* |
+| metric | **0.20.1.0** (full window) | 0.18.0.0 (last-128) | bigram (unigram-prior, same window) | bigram add-1 | unigram add-1 | old 0.6.0.0* |
 |---|---|---|---|---|---|---|
 | cross-entropy | **3.355** | 3.054 | 3.809 | 4.456 | 5.785 | 5.862 |
 | top-1 | **38.06 %** | 41.86 % | 31.32 % | 31.39 % | 4.83 % | 14.85 % |
@@ -176,18 +178,21 @@ system prompt and the newest complete user/assistant pairs, budget in real token
 10 % validation sample, and validation on the **same window as training** instead of a separate
 last-128 slice. `.txt` remains unsupervised pretraining (all tokens, shuffled windows, no validation
 by default). The model recipe is unchanged, so the numbers in the two columns above use different
-protocols and must not be compared: 0.18.0.0 was scored on the last 128 tokens, 0.20.0.0 on the
+protocols and must not be compared: 0.18.0.0 was scored on the last 128 tokens, 0.20.1.0 on the
 full training windows with the same 0.18 checkpoint (166 632 scored positions).
 
 The model is **better than a window-matched bigram on CE, top-1 and top-5**, with no
-back-propagation anywhere. 0.19.0.0 changes **no model math**; it is the 0.18 recipe with a repaired
-shell. The vocabulary now has a full lifecycle (train / save / load / metadata validation / fallback)
-instead of a hard-wired file, and there are two data pipelines: `.txt` is unsupervised pretraining
-(all tokens are targets, no validation by default), `.jsonl` is dialogue (assistant mask, validation
-split by dialogue at 10% or an explicit val file). Dialogues longer than the training window keep
-the system prompt and the newest complete user/assistant pairs instead of being cut mid-sentence.
-A new online-learning menu branch updates the model sample by sample (file streaming or during
-chat). Loading the 0.18 checkpoint reproduces CE 3.0543 / top-1 41.86 % / top-5 64.23 % exactly.
+back-propagation anywhere. 0.20.1.0 changes **no model math**; it is the 0.20.0.0 shell after a full
+menu pass. Training now saves automatically; plain-text continuation works from very short prompts;
+checkpoints no longer carry one-shot `V`/`spike_acc`/`M` state; EOF exits cleanly; and rebuilding a
+vocabulary writes `tokenizer.bin/json` instead of overwriting the read-only base. The vocabulary has
+a full lifecycle (train / save / load / metadata validation / fallback), and the two data pipelines
+remain: `.txt` is unsupervised pretraining (all tokens are targets, no validation by default),
+`.jsonl` is dialogue (assistant mask, record-level 10% validation split or an explicit val file).
+Dialogues longer than the training window keep the system prompt and the newest complete
+user/assistant pairs. Online learning (file streaming or during chat) requires a trained
+checkpoint. The 0.18 checkpoint loads cleanly and scores 3.3545 / 38.06 % / 60.60 % under the new
+full-window protocol, not the old 3.0543 / 41.86 / 64.23.
 
 The model is **better than a window-matched bigram on CE, top-1 and top-5**, with no
 back-propagation anywhere. 0.18.0.0 changes only the training window: the online counts and state
@@ -205,7 +210,7 @@ The screen trajectory 128 -> 192 -> 256 -> 384 -> 512 is 3.5864 -> 3.5137 -> 3.4
 versus 3.5864 at 1M, so the bucket axis is saturated at 1M. Hidden width stays at 432; hidden
 400/428/436/448 are flat and 464 is worse.
 
-> **Naming correction (2026-10-20).** The 0.13.0.0 / 0.14.0.0 / 0.15.0.0 / 0.16.0.0 / 0.17.0.0 / 0.18.0.0 / 0.19.0.0 / 0.20.0.0
+> **Naming correction (2026-10-20).** The 0.13.0.0 / 0.14.0.0 / 0.15.0.0 / 0.16.0.0 / 0.17.0.0 / 0.18.0.0 / 0.19.0.0 / 0.20.0.0 / 0.20.1.0
 > key uses `_tri_base = 4096` and `FOURGRAM_BUCKETS = 4096`, so the 4-gram hash collapses to the
 > last token: it is a last-token count table, not a strict 4-gram. 0.13 interpolates it with the
 > trigram prior; 0.14 with the raw bag-of-past prior; 0.15 and later with the row-normalised bag.
@@ -279,7 +284,8 @@ RawHebb+bio+<a>.<b>.<c>.<d>.py   (four-segment version, no `v` prefix)
 | 0.15.0.0 | row-normalises the bag context rows and uses a Jeffreys 0.5 four prior. Full corpus seed43: CE 3.1705, top-1 40.38 %, top-5 63.78 %. Three seeds mean 3.1724 / 40.45 % / 63.78 %. |
 | 0.16.0.0 | widens the trigram count table to 256k buckets, lowers the trigram prior to 2 and the hidden width to 432, keeping the row-normalised bag prior. Full corpus seed43: CE 3.1496, top-1 41.35 %, top-5 63.84 %. Three seeds mean 3.1516 / 41.20 % / 63.80 %. |
 | **0.17.0.0** | **widens the trigram count table to 1M buckets**. Full corpus seed43: CE **3.1411**, top-1 **41.59 %**, top-5 **63.86 %**. Three seeds: 3.1411 / 3.1458 / 3.1433 (mean **3.1434**), top-1 41.59 / 41.49 / 41.36 % (mean **41.48 %**), top-5 63.86 / 63.78 / 63.74 % (mean **63.79 %**); the 0.16 means are 3.1516 / 41.20 % / 63.80 %, so CE and top-1 improve with top-5 level. |
-| **0.20.0.0** | **usable shell: the 3120012 data chain adapted to the online Hebbian core**. `render_messages` + `_truncate_pairs` semantics, record-level 10 % validation split, and validation on the same window as training (full `SEQ_LEN`, 166 632 scored positions). Same 0.18 checkpoint: CE **3.3545** / top-1 **38.06 %** / top-5 **60.60 %** - a different protocol from the last-128 numbers, not an improvement or regression. Fixes the 0.19 menu crash and adds online learning. |
+| **0.20.1.0** | **menu-tested shell release**. 0.20.0.0 ported the 3120012 data chain; 0.20.1.0 fixes what a full menu pass found: automatic checkpoint save after training, plain-text continuation from short prompts, clean checkpoint loading (transient `V`/`spike_acc`/`M` no longer stored), EOF exit, and vocabulary rebuilds that do not overwrite the read-only base. Same model and full-window numbers as 0.20.0.0: CE **3.3545** / top-1 **38.06 %** / top-5 **60.60 %** (166 632 positions). |
+| **0.20.0.0** | **superseded by 0.20.1.0; usable shell: the 3120012 data chain adapted to the online Hebbian core**. `render_messages` + `_truncate_pairs` semantics, record-level 10 % validation split, and validation on the same window as training (full `SEQ_LEN`, 166 632 scored positions). Same 0.18 checkpoint: CE **3.3545** / top-1 **38.06 %** / top-5 **60.60 %** - a different protocol from the last-128 numbers, not an improvement or regression. Fixes the 0.19 menu crash and adds online learning. |
 | **0.19.0.0** | **shell overhaul; model identical to 0.18.0.0**. Full-dialogue training, same CE **3.0543** / top-1 **41.86 %** / top-5 **64.23 %** (three-seed mean 3.0553 / 41.74 % / 64.23 %). Restores the vocabulary lifecycle, `.txt` pretraining / `.jsonl` dialogue pipelines, message-aware truncation, and an online-learning menu branch; loading the 0.18 checkpoint is verified bit-identical. |
 | **0.18.0.0** | **trains on the whole dialogue (up to 384 tokens) while scoring the same last-128-token windows**. Full corpus seed43: CE **3.0543**, top-1 **41.86 %**, top-5 **64.23 %**. Three seeds: 3.0543 / 3.0554 / 3.0561 (mean **3.0553**), top-1 41.86 / 41.65 / 41.71 % (mean **41.74 %**), top-5 64.23 / 64.27 / 64.19 % (mean **64.23 %**); the 0.17 means are 3.1434 / 41.48 % / 63.79 %. |
 
@@ -313,9 +319,7 @@ AGPL-3.0. See [`LICENSE`](LICENSE).
 **问答 mask 与防泄露**：user 段与格式 token 的 label 置 `-100`，只统计 assistant；
 训练/验证按**对话**切分，并做精确重复、跨集 sha1、user 前缀、8-gram 四项泄露检查（结果见 README）。
 
-**必须说清楚的现状（0.20.0.0）**：0.20 只改外壳与数据口径，模型配方同 0.18，未重新训练。同一份 0.18 权重在 312 同窗口径（完整训练窗口，166 632 个计分位置）下是 **CE 3.3545 / top-1 38.06% / top-5 60.60%**；旧的 last-128 口径数字（CE 3.0543 / top-1 41.86% /
-top-5 64.23%**（完整对话训练 ≤384 token + tri 桶 1M int16 + tri 先验 2 + hidden432 +
-行归一化 past-context bag 先验；0.17 是 3.1411/41.59/63.86）。
+**必须说清楚的现状（0.20.1.0）**：0.20 只改外壳与数据口径，模型配方同 0.18，未重新训练。同一份 0.18 权重在 312 同窗口径（完整训练窗口，166 632 个计分位置）下是 **CE 3.3545 / top-1 38.06% / top-5 60.60%**；旧的 last-128 口径是 3.0543 / 41.86% / 64.23%，两套不可比。
 同窗口、同 mask 的 bigram
 （unigram 先验）是 CE 3.809 / top-1 31.32% / top-5 58.05%，add-1 bigram 是 CE 4.456 / top-1
 31.39%；**三个指标都超过 bigram**。旧版本还修掉了从 0.1.0.0 起就存在的 **目标位移 off-by-one**：
@@ -324,9 +328,10 @@ top-5 64.23%**（完整对话训练 ≤384 token + tri 桶 1M int16 + tri 先验
 
 0.20.0.0 是把 3120012 的壳子真正移植过来：渲染（system/user/tool/assistant、reasoning、
 tool_calls）、`_truncate_pairs`（保留 system + 最近完整问答对，按真实 token 计预算）、
-按记录随机抽 10% 验证集、验证与训练同窗。0.19 的菜单 NameError 已修；`.txt` 预训练
-（全 token、窗口打乱、默认不验证）与 `.jsonl` 对话（assistant mask）分开。模型配方不变，
-因此 0.20 的指标与旧版 last-128 口径不可比：同一份 0.18 权重在 166 632 个位置上是
+按记录随机抽 10% 验证集、验证与训练同窗。0.20.1.0 是全菜单实跑后的修复版：训练结束自动保存；
+纯文本续写修复短提示的形状错误；检查点不再保存一次性状态；EOF 干净退出；重建词表不再覆盖
+只读基座。`.txt` 预训练（全 token、窗口打乱、默认不验证）与 `.jsonl` 对话（assistant mask）
+分开。模型配方不变，因此指标与旧版 last-128 口径不可比：同一份 0.18 权重在 166 632 个位置上是
 **CE 3.3545 / top-1 38.06% / top-5 60.60%**，旧口径为 3.0543 / 41.86% / 64.23%。
 
 0.18.0.0 只改训练窗口：在线计数与状态从「对话最后 128 token」改为「完整对话（上限 384）」，

@@ -916,3 +916,35 @@ windows and returned to the menu without error.
 **Online learning.** Requires a checkpoint. From random initialisation the first Newton step is
 ill-conditioned (||W_out|| 52 -> 11813 after two dialogues); with the 0.18 checkpoint the same two
 dialogues move it 0.633 -> 0.634.
+
+### v143 - all menu items exercised (0.20.1.0)
+
+The full menu pass found four real defects, all fixed here.
+
+1. **Menu 1 asked whether to save.** Training now saves to `brain.pt` automatically and sets the
+   loaded flag. Verified with a 4-record dialogue file: 3 train / 1 val (record sample), full
+   window validation (5 584 scored positions), then `[CKPT] 已保存`.
+2. **Menu 2 txt crashed on short prompts.** `你好` tokenises to two ids; the trigram key builder
+   used `_ids[:-2]` and the fourgram builder padded three places without truncating, so one tensor
+   had length 3 and another length 2 (`RuntimeError: size of tensor a (3) must match ... (2)`).
+   Both keys are now built as `cat([pad..., ids])[:T]`; the txt prompt also starts with `<|bos|>`.
+   Generation from `你好` and menu exit both succeed.
+3. **Loading a fresh checkpoint reported four shape mismatches.** `V` and `spike_acc` were
+   registered buffers, so the last forward's `(1,432)` state was saved while a fresh layer had
+   `(432,)`. `M` (432³ per layer, 1.3 GiB) was registered but never read. All three are transient
+   or dead; they are no longer buffers, and old checkpoints drop those keys on load. Menu 4 now
+   reports `skip 0 | missing 0 | unexpected 0`, and a 1143-token checkpoint shrinks from 3.6 GiB
+   to 2.3 GiB.
+4. **Rebuilding the vocabulary overwrote the base.** From a base-loaded tokenizer the menu passed
+   the base paths to the trainer, so a 300-token test overwrote `tokenizer_v63b4000.*`. The base
+   was restored from an identical copy in `wav3auto` (2754 tokens, legacy metadata), and the menu
+   now always writes `tokenizer.bin/json`; a repeated rebuild leaves the base hash unchanged.
+
+Menu items exercised in a clean directory with only the application and a `.txt`: 1 (txt earlier,
+jsonl here), 2 (jsonl and txt), 3, 4, 5, 6, 7 (1 sample, k=1), 8 (k=1), 9 (4 fractions), 10, 11,
+12 (view + round-trip + rebuild), 13 (file increment and in-chat learning, 366 target tokens).
+All exited 0 with no traceback. `--selftest` still passes with the 2754-token base.
+
+This is a usability release: the model recipe and all performance numbers are unchanged. The same
+0.18 checkpoint still scores 3.3545 / 38.06 % / 60.60 % on full training windows, and those numbers
+remain incomparable to the old last-128 protocol.
