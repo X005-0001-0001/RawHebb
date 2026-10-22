@@ -849,3 +849,33 @@ registry was cleared twice more by the terminal UI, killing running runs; the fi
 full run at a time over PTY, and detached `Start-Process` is not used. Large int16 checkpoints can
 be re-scored with `_v162_eval_ckpt.py` (mmap + filtered `load_state_dict`), which avoids the
 double-table OOM of `_v122_eval.py`.
+
+### v141 - shell overhaul: vocabulary lifecycle, two data pipelines, online branch (0.19.0.0)
+
+0.19.0.0 changes no model mathematics. The release file is generated from the 0.9.264 shell branch;
+loading the 0.18 seed43 checkpoint with it reproduces **3.0543 / 41.86 / 64.23** exactly, and the
+tokenizer produces bit-identical `chat_to_ids` for the eval slice of all 200 checked val dialogues.
+
+The shell had lost three pieces of the 3120012 design. First, `RawHebbTokenizer` only loaded two
+hard-wired files; it now trains ByteLevel BPE from the corpus, saves `tokenizer.bin` +
+`tokenizer.json`, validates metadata, falls back to the base vocabulary, and refuses checkpoints
+whose vocab/hidden/layer metadata disagree instead of silently skipping most tables through
+`strict=False`. Second, the data layer only understood `.jsonl` and had no dialogue split unless an
+external val file was supplied. Training now has two explicit pipelines: `.txt` is unsupervised
+pretraining (whole-file tokenisation, non-overlapping `SEQ_LEN+1` windows, every position scored,
+no validation by default, matching 3120012); `.jsonl` is dialogue (assistant mask, validation split
+by dialogue at 10 % with seed 43, or an explicit val file). Dialogues longer than 384 tokens are
+truncated at message-pair boundaries, keeping the system prompt and the newest complete
+user/assistant pairs rather than cutting mid-sentence. Third, the menu lost dataset selection and
+had no online branch; the new menu restores file selection and validated inputs, adds a tokenizer
+submenu, and adds item 13: online learning by streaming a file (one local update per sample) or
+during chat (one update per exchange). Online learning requires a trained checkpoint; starting it
+from random initialisation makes the first Newton step explode (‖W_out‖ 52 -> 11813 after two
+dialogues), whereas a loaded model moves only 0.633 -> 0.634 on the same two dialogues.
+
+Smoke tests: `.txt` 11 925 tokens -> 31 windows, train CE 2.978, no validation; `.jsonl` with
+`--limit 40` and no val file -> 36 train / 4 val dialogues, val CE 4.0945; a 600-token vocabulary
+trained from 170 text segments saves v5 metadata, reloads, encodes and decodes; menu startup and
+`0` exit work. Six dead constants left over from the optimiser era were removed. The model defaults
+are unchanged: hidden 432, 4 layers, `SEQ_LEN` 384, `EVAL_LEN` 128, 1M int16 trigram buckets,
+4k last-token counts, row-normalised bag prior with Jeffreys 0.5.

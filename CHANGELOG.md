@@ -3,6 +3,28 @@
 All notable changes to RawHebb. Versions follow `RawHebb+bio+<a>.<b>.<c>.<d>.py` (four segments, no `v` prefix);
 every change is a new file, older versions are kept verbatim.
 
+## [0.19.0.0] - current
+* **Shell overhaul; the model recipe is unchanged.** Loading the 0.18.0.0 checkpoint reproduces
+  CE **3.0543** / top-1 **41.86 %** / top-5 **64.23 %** exactly (verified with
+  `research/_v162_eval_ckpt.py`), so the numbers below are identical to 0.18.
+* **Vocabulary lifecycle restored** (from 3120012elite): ByteLevel BPE can be trained from the
+  corpus, saved as `tokenizer.bin` + `tokenizer.json`, loaded with metadata validation, and falls
+  back to the base vocabulary when present. Rebuilt vocabularies are detected on checkpoint load
+  and refused explicitly instead of silently skipping most tables.
+* **Two data pipelines** matching 3120012: `.txt` = unsupervised pretraining (all tokens, windows
+  of `SEQ_LEN+1`, no validation by default); `.jsonl` = dialogue (assistant mask, validation split
+  by dialogue at 10 % with a fixed seed, or an explicit val file).
+* **Message-aware truncation:** dialogues longer than `SEQ_LEN` keep the system prompt and the
+  newest complete user/assistant pairs (`_truncate_pairs` behaviour), instead of cutting a sentence
+  in the middle.
+* **Online learning menu branch:** stream a `.txt`/`.jsonl` incrementally (one update per sample,
+  no shuffle/validation) or learn during chat (one update per exchange). Requires a trained
+  checkpoint so the Newton head does not start from an ill-conditioned random state.
+* **Config cleanup:** removed six never-read placebo constants (`BATCH_SIZE`, `LEARNING_RATE`,
+  `WEIGHT_DECAY`, `GRAD_CLIP_NORM`, `MEM_MOD_DECAY`, `ADAPT_TAU_MS`), rewrote the configuration
+  with sourced/measured comments, and added dataset selection, input validation and a tokenizer
+  submenu to the menu.
+
 ## [0.18.0.0] - current
 * **Full-dialogue training window.** The online counts and membrane state now see the whole
   dialogue (capped at 384 tokens) instead of its last 128 tokens; evaluation is unchanged and
